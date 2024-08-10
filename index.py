@@ -8,6 +8,7 @@ import bfabric
 import pandas as pd
 from dash import callback_context as ctx
 from utils import auth_utils, components, formatting_functions as fns
+from datetime import datetime as dt
 
 if os.path.exists("./PARAMS.py"):
     try:
@@ -54,7 +55,7 @@ app.layout = html.Div(
                                 html.Div(
                                     children=[
                                         html.P(
-                                            'B-Fabric App Template',
+                                            'Myra CSV Downloader',
                                             style={'color':'#ffffff','margin-top':'15px','height':'80px','width':'100%',"font-size":"40px","margin-left":"20px"}
                                         )
                                     ],
@@ -66,33 +67,31 @@ app.layout = html.Div(
                 ),
                 dbc.Row(
                     dbc.Col(
-                        html.Div(
-                            children=[html.P(id="page-title",children=[str("Bfabric App Template")], style={"font-size":"40px", "margin-left":"20px", "margin-top":"10px"})],
-                            style={"margin-top":"0px", "min-height":"80px","height":"6vh","border-bottom":"2px solid #d4d7d9"}
-                        )
+                        [
+                            html.Div(
+                                children=[html.P(id="page-title",children=[str("Myra CSV Downloader")], style={"font-size":"40px", "margin-left":"20px", "margin-top":"10px"})],
+                                style={"margin-top":"0px", "min-height":"80px","height":"6vh","border-bottom":"2px solid #d4d7d9"}
+                            ),
+                            dbc.Alert(
+                                "You're bug report has been submitted. Thanks for helping us improve!",
+                                id="alert-fade-3",
+                                dismissable=True,
+                                is_open=False,
+                                color="info",
+                                style={"max-width":"50vw", "margin":"10px"}
+                            ),
+                            dbc.Alert(
+                                "Failed to submit bug report! Please email the developers directly at the email below!",
+                                id="alert-fade-3-fail", 
+                                dismissable=True,
+                                is_open=False, 
+                                color="danger",
+                                style={"max-width":"50vw", "margin":"10px"}
+                            ),
+                        ]
                     )
                 ),
-                dbc.Row(
-                    id="page-content-main",
-                    children=[
-                        dbc.Col(
-                            html.Div(
-                                id="sidebar",
-                                children=components.myra_sidebar,
-                                style={"border-right": "2px solid #d4d7d9", "height": "100%", "padding": "20px", "font-size": "20px"}
-                            ),
-                            width=3,
-                        ),
-                        dbc.Col(
-                            html.Div(
-                                id="page-content",
-                                children=components.no_auth + [html.Div(id="auth-div")],style={"margin-top":"20vh", "margin-left":"2vw", "font-size":"20px"},
-                            ),
-                            width=9,
-                        ),
-                    ],
-                    style={"margin-top": "0px", "min-height": "40vh"}
-                ),
+                components.tabs,
             ], style={"width":"100vw"},  
             fluid=True
         ),
@@ -111,11 +110,10 @@ app.layout = html.Div(
         Output('entity', 'data'),
         Output('page-content', 'children'),
         Output('page-title', 'children'),
-        Output('sidebar_text', 'hidden'),
-        Output('example-slider', 'disabled'),
-        Output('example-dropdown', 'disabled'),
-        Output('example-input', 'disabled'),
-        Output('example-button', 'disabled'),
+        Output('session-details', 'children'),
+        Output('load-val-2', 'disabled'),
+        Output('pool_vol', 'disabled'),
+        Output('dropdown-select-file-type', 'disabled'),
     ],
     [
         Input('url', 'search'),
@@ -123,87 +121,61 @@ app.layout = html.Div(
 )
 def display_page(url_params):
     
-    base_title = "Bfabric App Template"
+    base_title = "Myra CSV Downloader"
 
     if not url_params:
-        return None, None, None, components.no_auth, base_title, True, True, True, True, True
+        return None, None, None, components.no_auth, base_title, None, True, True, True
     
     token = "".join(url_params.split('token=')[1:])
     tdata_raw = auth_utils.token_to_data(token)
     
     if tdata_raw:
         if tdata_raw == "EXPIRED":
-            return None, None, None, components.expired, base_title, True, True, True, True, True
+            return None, None, None, components.expired, base_title, None, True, True, True
 
         else: 
             tdata = json.loads(tdata_raw)
     else:
-        return None, None, None, components.no_auth, base_title, True, True, True, True, True
+        return None, None, None, components.no_auth, base_title, None, True, True, True
     
     if tdata:
         entity_data = json.loads(auth_utils.entity_data(tdata))
         page_title = f"{base_title} - {tdata['entityClass_data']} - {tdata['entity_id_data']} ({tdata['environment']} System)" if tdata else "Bfabric App Interface"
-
+        session_details = [html.P("No session details available.")]
         if not tdata:
-            return token, None, None, components.no_auth, page_title, True, True, True, True, True
+            return token, None, None, components.no_auth, page_title,session_details, True, True, True
         
         elif not entity_data:
-            return token, None, None, components.no_entity, page_title, True, True, True, True, True
+            return token, None, None, components.no_entity, page_title,session_details,True, True, True
         
         else:
             if not DEV:
-                return token, tdata, entity_data, components.auth, page_title, False, False, False, False, False
-            else: 
-                return token, tdata, entity_data, components.dev, page_title, True, True, True, True, True
-    else: 
-        return None, None, None, components.no_auth, base_title, True, True, True, True, True
-    
-@app.callback(
-    Output('auth-div', 'children'),
-    [
-        Input('example-slider', 'value'),
-        Input('example-dropdown', 'value'),
-        Input('example-input', 'value'),
-        Input('example-button', 'n_clicks')
-    ],
-    [
-        State('entity', 'data'),
-        State('token_data', 'data'),
-    ]
-)
-def update_auth_div(slider_val, dropdown_val, input_val, n_clicks, entity_data, token_data):
-
-    if not entity_data or not token_data:
-        return None
-
-    entity_details = [
-        html.H1(f"Entity Data:  "),
-        html.P(f"Entity Class: {token_data['entityClass_data']}"),
-        html.P(f"Entity ID: {token_data['entity_id_data']}"),
-        html.P(f"Created By: {entity_data['createdby']}"),
-        html.P(f"Created: {entity_data['created']}"),
-        html.P(f"Modified: {entity_data['modified']}"),
-    ]
-
-    output = dbc.Row(
-        [
-            dbc.Col(
-                [
-                    html.H1("Component Data: "),
-                    html.P(f"Slider Value: {slider_val}"),
-                    html.P(f"Dropdown Value: {dropdown_val}"),
-                    html.P(f"Input Value: {input_val}"),
-                    html.P(f"Button Clicks: {n_clicks}")
+                print(entity_data)
+                session_details = [
+                    html.P([
+                        html.B("Entity Name: "), entity_data['name'],
+                        html.Br(),
+                        html.B("Entity Class: "), tdata['entityClass_data'],
+                        html.Br(),
+                        html.B("Environment: "), tdata['environment'],
+                        html.Br(),
+                        html.B("Entity ID: "), tdata['entity_id_data'],
+                        html.Br(),
+                        html.B("User Name: "), tdata['user_data'],
+                        html.Br(),
+                        html.B("Session Expires: "), tdata['token_expires'],
+                        html.Br(),
+                        html.B("Current Time: "), str(dt.now().strftime("%Y-%m-%d %H:%M:%S"))
+                    ])
                 ]
-            ),
-            dbc.Col(
-                entity_details
-            )
-        ]
-    )
+                return token, tdata, entity_data, components.auth, page_title,session_details, False, False, False
+            else: 
+                token_data = json.loads(auth_utils.token_to_data(token))
 
-    return output
-
+                if entity_data:
+                    return token, tdata, entity_data, components.dev, page_title,session_details, True, True, True
+    else: 
+        return None, None, None, components.no_auth, base_title,session_details, True, True, True
 
 @app.callback(output=Output("mal-card", "children"),
               state=[State("dropdown-select-file-type", "value"),
@@ -211,50 +183,31 @@ def update_auth_div(slider_val, dropdown_val, input_val, n_clicks, entity_data, 
               inputs=[Input("input_df","data")])
 def generate_iseq_selectors(data, ftype, token):
 
-    tdata = auth_utils.token_to_data(token)
-    print("FTYPE:")
-    print(ftype)
+    tdata = json.loads(auth_utils.token_to_data(token))
+
     if ftype == "repool":
         df = pd.DataFrame(data)
         df = df[df['containerType'] == "order"]
-
         df['ident'] = [str(i).split("_")[-1] for i in list(df['group'])]
-        # print("ONE")
-        # print([str(i).split("_")[-1] for i in list(df['group'])])
-
         order_runs = dict()
 
         for order in list(df['ident'].unique()):
             tmp = df[df['ident'] == order]
-            # print("TWO")
-            # print(tmp)
             runs = []
 
-            # ress = fns.read_bfabric(endpoint="sample", obj={"tubeid":list(tmp['tubeID']),"type":"Library on Run - Illumina"}) # NOT GETTING ALL RUNS BECAUSE NEED TO PAGE THIS QUERY
-            # print(list(tmp['tubeID']))
-            print(tmp)
-            print(list(tmp['tubeID']))
-            new_wrapper = bfabric.Bfabric()
+            wrapper = auth_utils.token_response_to_bfabric(tdata)
+
             try:
-                ress = tdata['bfabric_wrapper'].read_object("sample", {"tubeid":list(tmp['tubeID']),"includeruns":True,"type":"Library on Run - Illumina"})
+                ress = wrapper.read_object("sample", {"tubeid":list(tmp['tubeID']),"includeruns":True,"type":"Library on Run - Illumina"})
             except:
                 ress = []
-            #B = bfabric.Bfabric()
-            #ress = tdata['bfabric_wrapper'].read_object(endpoint="sample", obj={"tubeid":['34224/1#4', '34224/1#3', '34224/1#13', '34224/1#2', '34224/1#11', '34224/1#10', '34224/1#7', '34224/1#6', '34224/1#5'], "type":"Library on Run - Illumina","includeruns":True})
 
-            # ress = B.read_object("sample", {"tubeid":list(tmp['tubeID']),"type":"Library on Run - Illumina"})
             if type(ress) != type(None):
             
                 for res in ress:
-
-                    # print(res.run[0])
-                    print(res)
-
                     if hasattr(res, "run"):
                         for w in res.run:
                             try:
-                                # print("ASDF")
-                                # print(w)
                                 runs.append(w._id)
                             except:
                                 pass
@@ -262,25 +215,18 @@ def generate_iseq_selectors(data, ftype, token):
                         print("No run attribute for sample "+str(res._id))
 
             runs = list(set(runs))
-            # print("RUNS:")
-            # print(runs)
-
             iseqs = dict()
-            print("RUNS:")
-            print(runs)
+
             for run in runs:
-                # res = fns.read_bfabric(endpoint="run", obj={"id":str(run)})
-                res = tdata['bfabric_wrapper'].read_object("run", {"id":str(run)})
-                print(run)
+                res = wrapper.read_object("run", {"id":str(run)})
+                # res = tdata['bfabric_wrapper'].read_object("run", {"id":str(run)})
                 if "iseq" in str(res[0].instrument).lower() or str(res[0].qc) == "true":
                     iseqs[str(run)]=res[0].name
 
             order_runs[order] = iseqs.copy()
-        # print(runs)
-        # print(iseqs)
-        # print(order_runs)
+
         send = [dcc.Dropdown(
-            id="order"+str(order),
+            id="order_"+str(order),
             options=[
                 {
                     "label": order_runs[order][elt],
@@ -291,27 +237,68 @@ def generate_iseq_selectors(data, ftype, token):
             searchable=False,
             value="",
         ) for order in order_runs]
-        send.append(html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0, style={"font-size":"20px", "margin-top":"10px", "height":"40px"}))
-        # send.append(html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0, style={'color':'white'}))
+        # send.append(html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0))
         return send
     else:
-        # return [html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0, style={'color':'white'})]
-        return [html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0)]
+        # return [html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0)]
+        return []
 
 
-@app.callback(output=Output("input_df", "data"),
+@app.callback(
+    [
+        Output("alert-fade-3", "is_open"),
+        Output("alert-fade-3-fail", "is_open")
+    ],
+    [
+        Input("submit-bug-report", "n_clicks")
+    ],
+    [
+        State("token", "data"),
+        State("entity", "data"),
+        State("bug-description", "value")
+    ]
+)
+def submit_bug_report(n_clicks, token, entity_data, bug_description):
+
+    if token: 
+        token_data = json.loads(auth_utils.token_to_data(token))
+    else:
+        token_data = ""
+
+    if n_clicks:
+        try:
+            sending_result = auth_utils.send_bug_report(
+                token_data=token_data,
+                entity_data=entity_data,
+                description=bug_description
+            )
+            if sending_result:
+                return True, False
+            else:
+                return False, True
+        except:
+            return False, True
+
+    return False, False
+
+
+@app.callback(output=[
+        Output("input_df", "data"),
+        Output("submit_iseq", "disabled"),
+    ],
               inputs=[Input("load-val-2", "n_clicks")],
-            #   state=[State("plate_input", "value"),
                 state=[State("token", "data"),
                      State("pool_vol", "value")],prevent_initial_call=True)
 def generate_input_df(start, token, pool_vol):
 
-    tdata = auth_utils.token_to_data(token)
+    tdata = json.loads(auth_utils.token_to_data(token))
     plate = tdata['entity_id_data']
 
-    df = fns.get_plate_details(plate, pool_vol, tdata['bfabric_wrapper'])
+    wrapper = auth_utils.token_response_to_bfabric(tdata)
 
-    return df.to_dict("records")
+    df = fns.get_plate_details(plate, pool_vol, wrapper)
+
+    return df.to_dict("records"), False
 
 
 @app.callback(output=Output("div-graphs-myra", "children"),
@@ -323,9 +310,13 @@ def generate_input_df(start, token, pool_vol):
                     State("token","data")],prevent_initial_call=True)
 def generate_table(data, iseq_submit, dropdown, card, pool_vol, token):
 
+    print("CALLBACK IS RUNNING")
+
     button_clicked = ctx.triggered_id
 
     if not data:
+
+        print("NO DATA")
         send = dash_table.DataTable(
                 [],
                 [],
@@ -349,6 +340,7 @@ def generate_table(data, iseq_submit, dropdown, card, pool_vol, token):
         return send
 
     data = pd.DataFrame(data)
+    print(data)
 
     if dropdown == "norm":
         data = data[data['libraryPassed']=="true"]
@@ -362,24 +354,17 @@ def generate_table(data, iseq_submit, dropdown, card, pool_vol, token):
 
         orderRun = dict()
         for elt in card:
-            # if True:
-            try:
-                # print(elt)
-                # print(elt['props']['children'][0]['props']['children'].split(" ")[-1][:-1])
-                # print(elt['props']['children'][1]['props']['value'])
-                orderRun[elt['props']['children'][0]['props']['children'].split(" ")[-1][:-1]] = elt['props']['children'][1]['props']['value']
 
+            try:
+
+                orderRun[elt['props']['id'].split("_")[-1]] = elt['props']['value']
             except:
-                # pass
                 pass
         if orderRun == dict():
             return
-        # print(data)
-        # print(orderRun)
-        # print(pool_vol)
-        wrapper = auth_utils.token_to_data(token)['bfabric_wrapper']
-        df = fns.RePool(data,orderRun,pool_vol,wrapper)
 
+        wrapper = auth_utils.token_response_to_bfabric(json.loads(auth_utils.token_to_data(token)))
+        df = fns.RePool(data,orderRun,pool_vol,wrapper)
 
     send = dash_table.DataTable(
                 df.to_dict("records"),
@@ -407,4 +392,4 @@ def generate_table(data, iseq_submit, dropdown, card, pool_vol, token):
     return send
 
 if __name__ == '__main__':
-    app.run_server(debug=False, port=PORT, host=HOST)
+    app.run_server(debug=True, port=PORT, host=HOST)

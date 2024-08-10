@@ -5,6 +5,7 @@ import datetime
 import bfabric
 from dash import html
 import dash_bootstrap_components as dbc
+import os
 
 VALIDATION_URL = "https://fgcz-bfabric.uzh.ch/bfabric/rest/token/validate?token="
 HOST = "fgcz-bfabric.uzh.ch"
@@ -92,9 +93,36 @@ def entity_data(token_data: dict) -> str:
         return None
 
     json_data = json.dumps({
+        "name": xml.name,
         "createdby": xml.createdby, 
         "created": xml.created,
         "modified": xml.modified,
         # . . . add additional attributes here which you want to save from the entity data
     })
     return json_data
+
+
+def send_bug_report(token_data, entity_data, description):
+
+    mail_string = f"""
+    BUG REPORT FROM MYRA-CSV-APP
+        \n\n
+        token_data: {token_data} \n\n 
+        entity_data: {entity_data} \n\n
+        description: {description} \n\n
+        sent_at: {datetime.datetime.now()} \n\n
+    """
+
+    mail = f"""
+        echo "{mail_string}" | mail -s "Bug Report" griffin@gwcustom.com
+    """
+
+    print("MAIL STRING:")
+    print(mail_string)
+
+    print("MAIL:")
+    print(mail)
+
+    os.system(mail)
+
+    return True

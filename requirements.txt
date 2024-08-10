@@ -2,7 +2,7 @@ blinker==1.8.2
 certifi==2024.6.2
 charset-normalizer==3.3.2
 click==8.1.7
-dash==2.17.0
+dash==2.14.2
 dash-bootstrap-components==1.6.0
 dash-core-components==2.0.0
 dash-html-components==2.0.0
