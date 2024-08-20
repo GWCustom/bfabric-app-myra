@@ -1,9 +1,9 @@
-# bfabric-app-template
+# Myra Robot CSV Downloader 
 Template Application for Bfabric Webapp Concept (written in Python3) 
 
 ## Deployment 
 
-1) Fork the Repo 
+1) Fork the Repo (or skip directly to step 2) 
 
 2) Clone your Repo
 
