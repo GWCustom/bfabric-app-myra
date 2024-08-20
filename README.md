@@ -1,5 +1,5 @@
 # Myra Robot CSV Downloader 
-Template Application for Bfabric Webapp Concept (written in Python3) 
+Application for preparing input CSV files for the Myra Robot, from bfabric plate data 
 
 ## Deployment 
 
