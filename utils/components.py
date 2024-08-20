@@ -44,13 +44,13 @@ myra_sidebar = [
             html.P(),
             dcc.Download(id='download')
         ],
+        style={"padding":"2px", "border":"0px solid #d4d7d9"}
     ),
     dcc.Loading(
         dbc.Card(
             id="mal-card",
-            children=[
-                
-            ]
+            children=[],
+            style={"padding":"2px", "border":"0px solid #d4d7d9"}
         ),
     )
 ]
@@ -86,9 +86,7 @@ dev = [html.P("This page is under development. Please check back later."),html.B
 auth = [
     html.Div(
         id="graph_header-2",
-        children=[
-
-        ]
+        children=[]
     ),
     dcc.Loading(
         children = [
@@ -102,14 +100,14 @@ auth = [
         html.Div(
             id="div-graphs-myra",
             children=[
-                dcc.Graph(
-                    id="OUT",
-                    figure=dict(
-                        layout=dict(
-                            # plot_bgcolor="#282b38", paper_bgcolor="#282b38"
-                        )
-                    ),
-                ),
+                # dcc.Graph(
+                #     id="OUT",
+                #     figure=dict(
+                #         layout=dict(
+                #             # plot_bgcolor="#282b38", paper_bgcolor="#282b38"
+                #         )
+                #     ),
+                # ),
             ],
             style={"padding-right":"40px", "max-width":"60vw"}
         )
@@ -234,8 +232,9 @@ docs = dbc.Row(
 
 tabs = dbc.Tabs(
     [
-        dbc.Tab(docs, label="Documentation"),
-        dbc.Tab(main_tab, label="CSV Prep"),
-        dbc.Tab(report_bug_tab, label="Submit Bug Report"),
-    ]
+        dbc.Tab(docs, label="Documentation", id="docs-tab"),
+        dbc.Tab(main_tab, label="CSV Prep", id="csv-prep-tab"),
+        dbc.Tab(report_bug_tab, label="Submit Bug Report", id="bug-report-tab"),
+    ],
+    active_tab="csv-prep-tab",
 )

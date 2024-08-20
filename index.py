@@ -225,18 +225,33 @@ def generate_iseq_selectors(data, ftype, token):
 
             order_runs[order] = iseqs.copy()
 
-        send = [dcc.Dropdown(
-            id="order_"+str(order),
-            options=[
-                {
-                    "label": order_runs[order][elt],
-                    "value": elt
-                } for elt in order_runs[order]
+        send = [
+            html.Div(
+                [   
+                    html.P(
+                        "Order "+str(order),
+                        style={
+                            "font-size":"14px",
+                            "margin-bottom":"1px",
+                        }
+                    ),
+                    dcc.Dropdown(
+                        id="order_"+str(order),
+                        options=[
+                            {
+                                "label": order_runs[order][elt],
+                                "value": elt
+                            } for elt in order_runs[order]
+                            ],
+                        clearable=False,
+                        searchable=False,
+                        value="",
+                        style={"padding":"2px"}
+                    ),
                 ],
-            clearable=False,
-            searchable=False,
-            value="",
-        ) for order in order_runs]
+                style={"margin-bottom":"10px"}
+            ) for order in order_runs
+        ]
         # send.append(html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0))
         return send
     else:
@@ -353,12 +368,15 @@ def generate_table(data, iseq_submit, dropdown, card, pool_vol, token):
     elif dropdown == "repool":
 
         orderRun = dict()
-        for elt in card:
+        for child in card:
 
-            try:
-
+            if True:
+                elt = child['props']['children'][1]
+                print(elt)
+                print(elt['props']['id'])
                 orderRun[elt['props']['id'].split("_")[-1]] = elt['props']['value']
-            except:
+            # except:
+            else:
                 pass
         if orderRun == dict():
             return
