@@ -232,9 +232,8 @@ docs = dbc.Row(
 
 tabs = dbc.Tabs(
     [
-        dbc.Tab(docs, label="Documentation", id="docs-tab"),
-        dbc.Tab(main_tab, label="CSV Prep", id="csv-prep-tab"),
-        dbc.Tab(report_bug_tab, label="Submit Bug Report", id="bug-report-tab"),
-    ],
-    active_tab="csv-prep-tab",
+        dbc.Tab(main_tab, label="CSV Prep"),
+        dbc.Tab(docs, label="Documentation"),
+        dbc.Tab(report_bug_tab, label="Submit Bug Report"),
+    ]
 )
