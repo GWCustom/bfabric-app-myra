@@ -67,18 +67,18 @@ default_sidebar = [
 ]
 
 no_auth = [
-    html.P("You are not currently logged into an active session. Please log into bfabric to continue:"),
-    html.A('Login to Bfabric', href='https://fgcz-bfabric.uzh.ch/bfabric/')
+    html.P("You are not currently logged into an active session. Please log into B-Fabric to continue:"),
+    html.A('Login to B-Fabric', href='https://fgcz-bfabric.uzh.ch/bfabric/')
 ]
 
 expired = [
-    html.P("Your session has expired. Please log into bfabric to continue:"),
-    html.A('Login to Bfabric', href='https://fgcz-bfabric.uzh.ch/bfabric/')
+    html.P("Your session has expired. Please log into B-Fabric to continue:"),
+    html.A('Login to B-Fabric', href='https://fgcz-bfabric.uzh.ch/bfabric/')
 ]
 
 no_entity = [
-    html.P("There was an error fetching the data for your entity. Please try accessing the applicaiton again from bfabric:"),
-    html.A('Login to Bfabric', href='https://fgcz-bfabric.uzh.ch/bfabric/')
+    html.P("There was an error fetching the data for your entity. Please try accessing the applicaiton again from B-Fabric:"),
+    html.A('Login to B-Fabric', href='https://fgcz-bfabric.uzh.ch/bfabric/')
 ]
 
 dev = [html.P("This page is under development. Please check back later."),html.Br(),html.A("email the developer for more details",href="mailto:"+DEVELOPER_EMAIL)]
@@ -196,7 +196,7 @@ docs = dbc.Row(
                     children=[
                         html.H2("Welcome to The Myra CSV Downloader App"),
                         html.P([
-                            "This app serves as a user interface for creating input CSV files for the Myra Robot, using bfabric data."
+                            "This app serves as a user interface for creating input CSV files for the Myra Robot, using B-Fabric data."
                         ]),
                         html.Br(),
                         html.H4("Developer Info"),
@@ -209,7 +209,7 @@ docs = dbc.Row(
                         html.H4("Some Notes on this App\'s Functionality"),
                         html.P([
                             """
-                            This app is designed to easily allow users to download Myra CSVs, based on data associated with the respective plate object in Bfabric. """
+                            This app is designed to easily allow users to download Myra CSVs, based on data associated with the respective plate object in B-Fabric. """
                         ]),
                         html.Br(),
                         html.H4("CSV Prep Tab"),
@@ -234,6 +234,6 @@ tabs = dbc.Tabs(
     [
         dbc.Tab(main_tab, label="CSV Prep"),
         dbc.Tab(docs, label="Documentation"),
-        dbc.Tab(report_bug_tab, label="Submit Bug Report"),
+        dbc.Tab(report_bug_tab, label="Report a Bug"),
     ]
 )

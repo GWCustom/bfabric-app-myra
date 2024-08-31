@@ -66,7 +66,7 @@ def token_response_to_bfabric(token_response: dict) -> str:
 def entity_data(token_data: dict) -> str: 
 
     """
-    This function takes in a token from bfabric, and returns the entity data for the token.
+    This function takes in a token from B-Fabric, and returns the entity data for the token.
     Edit this function to change which data is stored in the browser for this entity.
     """
 
