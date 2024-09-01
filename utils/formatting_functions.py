@@ -10,6 +10,8 @@ import statistics
 import os
 import pickle as pkl
 
+## TODO Rewrite all of this: This is very old code, some of it is inefficient
+
 B = bfabric.Bfabric()
 
 def RC(barcode):

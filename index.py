@@ -69,7 +69,7 @@ app.layout = html.Div(
                     dbc.Col(
                         [
                             html.Div(
-                                children=[html.P(id="page-title",children=[str("Myra CSV Downloader")], style={"font-size":"40px", "margin-left":"20px", "margin-top":"10px"})],
+                                children=[html.P(id="page-title",children=[str(" ")], style={"font-size":"40px", "margin-left":"20px", "margin-top":"10px"})],
                                 style={"margin-top":"0px", "min-height":"80px","height":"6vh","border-bottom":"2px solid #d4d7d9"}
                             ),
                             dbc.Alert(
@@ -121,7 +121,7 @@ app.layout = html.Div(
 )
 def display_page(url_params):
     
-    base_title = "Myra CSV Downloader"
+    base_title = ""
 
     if not url_params:
         return None, None, None, components.no_auth, base_title, None, True, True, True
@@ -140,7 +140,7 @@ def display_page(url_params):
     
     if tdata:
         entity_data = json.loads(auth_utils.entity_data(tdata))
-        page_title = f"{base_title} - {tdata['entityClass_data']} - {tdata['entity_id_data']} ({tdata['environment']} System)" if tdata else "Bfabric App Interface"
+        page_title = f"{tdata['entityClass_data']} - {entity_data['name']} - ID: - {tdata['entity_id_data']}" if tdata else "B-Fabric App Interface"
         session_details = [html.P("No session details available.")]
         if not tdata:
             return token, None, None, components.no_auth, page_title,session_details, True, True, True
