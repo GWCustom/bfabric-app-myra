@@ -1,7 +1,7 @@
 from dash import Input, Output, State, html, dcc
 import dash_bootstrap_components as dbc
 import dash
-import dash_table
+from dash import dash_table
 import json
 import os
 import bfabric

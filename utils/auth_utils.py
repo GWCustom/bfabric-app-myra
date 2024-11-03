@@ -40,13 +40,15 @@ def token_to_data(token: str) -> str:
         if not five_minutes_later <= datetime.datetime.strptime(expiry_time, "%Y-%m-%d %H:%M:%S"):
             return "EXPIRED"
         
+        environment_dict = {"Production":"https://fgcz-bfabric.uzh.ch/bfabric","Test":"https://fgcz-bfabric-test.uzh.ch/bfabric"}
+
         token_data = dict(
             environment = userinfo['environment'],
             user_data = userinfo['user'],
             token_expires = expiry_time,
             entity_id_data = userinfo['entityId'],
             entityClass_data = userinfo['entityClassName'],
-            webbase_data = validation_url.split('rest')[0],
+            webbase_data = environment_dict.get(userinfo['environment'], None),
             application_params_data = {},
             application_data = str(userinfo['applicationId']),
             userWsPassword = userinfo['userWsPassword']
