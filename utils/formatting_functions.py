@@ -1,5 +1,4 @@
 import pandas as pd
-import bfabric
 import statistics as s
 import plotly.graph_objects as go
 import numpy as np
@@ -9,10 +8,9 @@ import datetime
 import statistics
 import os
 import pickle as pkl
+import bfabric
 
 ## TODO Rewrite all of this: This is very old code, some of it is inefficient
-
-B = bfabric.Bfabric()
 
 def RC(barcode):
     if str(barcode).lower().startswith("si"):
@@ -54,7 +52,7 @@ def RS(barcode):
     else:
         return barcode
 
-def get_dataset(order_number):
+def gre(order_number, B):
 
     bc1s = []
     bc2s = []

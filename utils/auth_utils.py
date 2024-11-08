@@ -2,10 +2,12 @@
 import requests
 import json
 import datetime
-import bfabric
 from dash import html
 import dash_bootstrap_components as dbc
 import os
+import bfabric
+from bfabric import BfabricAuth
+from bfabric import BfabricClientConfig
 
 VALIDATION_URL = "https://fgcz-bfabric.uzh.ch/bfabric/rest/token/validate?token="
 HOST = "fgcz-bfabric.uzh.ch"
@@ -56,15 +58,24 @@ def token_to_data(token: str) -> str:
 
         return json.dumps(token_data)
     
-
+"""
 def token_response_to_bfabric(token_response: dict) -> str:
 
     bfabric_wrapper = bfabric.Bfabric(login=token_response['user_data'], password=token_response['userWsPassword'], webbase=token_response['webbase_data'])
 
     return bfabric_wrapper
+"""
+
+def token_response_to_bfabric(token_response: dict) -> str:
+
+    bfabric_auth = BfabricAuth(login=token_response.get('user_data'), password=token_response.get('userWsPassword'))
+    bfabric_client_config = BfabricClientConfig(base_url=token_response.get('webbase_data')) 
+
+    bfabric_wrapper = bfabric.Bfabric(config=bfabric_client_config, auth=bfabric_auth)
+
+    return bfabric_wrapper
 
 
-    
 def entity_data(token_data: dict) -> str: 
 
     """
@@ -90,18 +101,23 @@ def entity_data(token_data: dict) -> str:
     entity_id = token_data.get('entity_id_data', None)
 
     if wrapper and entity_class and endpoint and entity_id:
-        xml = wrapper.read_object(endpoint=endpoint, obj={"id":entity_id})[0]
+        entity_data_dict = wrapper.read(endpoint=endpoint, obj={"id": entity_id})[0]
+        
+        if entity_data_dict:
+            json_data = json.dumps({
+                "createdby": entity_data_dict.get("createdby"),
+                "created": entity_data_dict.get("created"),
+                "modified": entity_data_dict.get("modified"),
+                "name": entity_data_dict.get("name"),
+            })
+            print(json_data)
+            return json_data
+        else:
+            print("entity_data_dict is empty or None")
+            return None
     else:
+        print("Invalid input or entity information")
         return None
-
-    json_data = json.dumps({
-        "name": xml.name,
-        "createdby": xml.createdby, 
-        "created": xml.created,
-        "modified": xml.modified,
-        # . . . add additional attributes here which you want to save from the entity data
-    })
-    return json_data
 
 
 def send_bug_report(token_data, entity_data, description):
