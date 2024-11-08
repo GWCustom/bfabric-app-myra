@@ -10,6 +10,8 @@ import os
 import pickle as pkl
 import bfabric
 
+## TODO Rewrite all of this: This is very old code, some of it is inefficient
+
 def RC(barcode):
     if str(barcode).lower().startswith("si"):
         return barcode

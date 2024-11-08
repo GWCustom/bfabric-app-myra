@@ -79,7 +79,7 @@ def token_response_to_bfabric(token_response: dict) -> str:
 def entity_data(token_data: dict) -> str: 
 
     """
-    This function takes in a token from bfabric, and returns the entity data for the token.
+    This function takes in a token from B-Fabric, and returns the entity data for the token.
     Edit this function to change which data is stored in the browser for this entity.
     """
 
@@ -130,8 +130,12 @@ def send_bug_report(token_data, entity_data, description):
         sent_at: {datetime.datetime.now()} \n\n
     """
 
+    # mail = f"""
+    #     echo "{mail_string}" | mail -s "Bug Report" griffin@gwcustom.com
+    # """
+
     mail = f"""
-        echo "{mail_string}" | mail -s "Bug Report" griffin@gwcustom.com
+        echo "{mail_string}" | mail -s "Bug Report" gwtools@fgcz.system
     """
 
     print("MAIL STRING:")
