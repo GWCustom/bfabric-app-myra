@@ -108,6 +108,7 @@ def entity_data(token_data: dict) -> str:
                 "createdby": entity_data_dict.get("createdby"),
                 "created": entity_data_dict.get("created"),
                 "modified": entity_data_dict.get("modified"),
+                "name": entity_data_dict.get("name"),
             })
             print(json_data)
             return json_data
