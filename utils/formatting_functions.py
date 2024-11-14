@@ -60,7 +60,7 @@ def gre(order_number, B):
     names = []
     tubeids = []
 
-    res, all_res = B.read_object(endpoint="sample", obj={"containerid":str(order_number)}, page=1), []
+    res, all_res = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=1), []
 
     print(res)
 
@@ -68,14 +68,14 @@ def gre(order_number, B):
     while res is not None and len(res):
         all_res += res
         try:
-            res = B.read_object(endpoint="sample", obj={"containerid":str(order_number)}, page=next_page)
+            res = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=next_page)
         except:
             break
         next_page += 1
 
     samples = all_res
     # for i in range(19999999999999999999999999999999999999999999999):
-    #     samples = B.read_object(endpoint="sample", obj={"containerid":str(order_number)}, page=str(i))
+    #     samples = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=str(i))
     #     if type(samples) != type(None):
     #         all_samples += samples
     #     else:
@@ -188,7 +188,7 @@ def RePool(data, OR, pooling_volume, Bfab):
         tmp = data[data['container'] == order]
         # print(tmp)
         try:    
-            run = Bfab.read_object(endpoint="run", obj={"id":str(OR[order])})
+            run = Bfab.read(endpoint="run", obj={"id":str(OR[order])})
         except:
             run = []
         for i in run:
@@ -205,8 +205,8 @@ def RePool(data, OR, pooling_volume, Bfab):
 
         while len(runsamples) // 99 >= next_page:
             # print(order)
-            samples = Bfab.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"includeruns":True,"type":"Library on Run - Illumina"})
-            # samples = B.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"type":"Library on Run - Illumina","containerid":str(order)})
+            samples = Bfab.read(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"includeruns":True,"type":"Library on Run - Illumina"})
+            # samples = B.read(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"type":"Library on Run - Illumina","containerid":str(order)})
             if type(samples) != type(None):
                 new_samples += samples
                 next_page += 1
@@ -288,7 +288,7 @@ def get_plate_details(plate_id, pool_volume, wrapper):
     # Get plate object from bfabric
 
     if True:
-        res = B.read_object(endpoint='plate', obj={'id':str(plate_id)})
+        res = B.read(endpoint='plate', obj={'id':str(plate_id)})
         print(res)
         plate = res[0]
         plate_name = str(res[0].name)
@@ -317,7 +317,7 @@ def get_plate_details(plate_id, pool_volume, wrapper):
         except:
             volume_to_pool.append("NA")
 
-    res2 = B.read_object(endpoint='sample', obj={'id':IDS})
+    res2 = B.read(endpoint='sample', obj={'id':IDS})
 
     for bf_sample in res2:
 
@@ -501,7 +501,7 @@ def RePool(data, OR, pooling_volume, Bfab):
         tmp = data[data['container'] == order]
         # print(tmp)
         try:    
-            run = Bfab.read_object(endpoint="run", obj={"id":str(OR[order])})
+            run = Bfab.read(endpoint="run", obj={"id":str(OR[order])})
         except:
             run = []
         for i in run:
@@ -518,8 +518,8 @@ def RePool(data, OR, pooling_volume, Bfab):
 
         while len(runsamples) // 99 >= next_page:
             # print(order)
-            samples = Bfab.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"includeruns":True,"type":"Library on Run - Illumina"})
-            # samples = B.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"type":"Library on Run - Illumina","containerid":str(order)})
+            samples = Bfab.read(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"includeruns":True,"type":"Library on Run - Illumina"})
+            # samples = B.read(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"type":"Library on Run - Illumina","containerid":str(order)})
             if type(samples) != type(None):
                 new_samples += samples
                 next_page += 1
