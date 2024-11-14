@@ -218,8 +218,7 @@ def generate_iseq_selectors(data, ftype, token):
             iseqs = dict()
 
             for run in runs:
-                res = wrapper.read_object("run", {"id":str(run)})
-                # res = tdata['bfabric_wrapper'].read_object("run", {"id":str(run)})
+                res = wrapper.read("run", {"id":str(run)})
                 if "iseq" in str(res[0].instrument).lower() or str(res[0].qc) == "true":
                     iseqs[str(run)]=res[0].name
 
