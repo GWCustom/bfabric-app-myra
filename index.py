@@ -198,7 +198,7 @@ def generate_iseq_selectors(data, ftype, token):
             wrapper = auth_utils.token_response_to_bfabric(tdata)
 
             try:
-                ress = wrapper.read_object("sample", {"tubeid":list(tmp['tubeID']),"includeruns":True,"type":"Library on Run - Illumina"})
+                ress = wrapper.read("sample", {"tubeid":list(tmp['tubeID']),"includeruns":True,"type":"Library on Run - Illumina"})
             except:
                 ress = []
 
