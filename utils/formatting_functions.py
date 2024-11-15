@@ -59,20 +59,9 @@ def gre(order_number, B):
     names = []
     tubeids = []
 
-    res, all_res = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=1), []
+    results = B.read(endpoint="sample", obj={"containerid": str(order_number)}, max_results=None)
+    samples = results.get_first_n_results(None)    
 
-    print(res)
-
-    next_page = 2
-    while res is not None and len(res):
-        all_res += res
-        try:
-            res = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=next_page)
-        except:
-            break
-        next_page += 1
-
-    samples = all_res
     # for i in range(19999999999999999999999999999999999999999999999):
     #     samples = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=str(i))
     #     if type(samples) != type(None):
@@ -186,8 +175,8 @@ def RePool(data, OR, pooling_volume, Bfab):
     for order in OR:
         tmp = data[data['container'] == order]
         # print(tmp)
-        try:    
-            run = Bfab.read(endpoint="run", obj={"id":str(OR[order])})
+        try:
+            run = Bfab.read(endpoint="run", obj={"id": str(OR[order])})
         except:
             run = []
         for i in run:
@@ -196,21 +185,22 @@ def RePool(data, OR, pooling_volume, Bfab):
             runsamples = [str(elt._id) for elt in run[0].sample]
         except:
             continue
-        # print("\n\n\nRUN SAMPLES\n\n\n")
-        # print(runsamples)
-        all_samples = []
-        new_samples = []
-        next_page = 0
+        # Fetch all samples in one call using max_results=None
+        try:
+            results = Bfab.read(
+                endpoint="sample",
+                obj={
+                    "id": runsamples,
+                    "includeruns": True,
+                    "type": "Library on Run - Illumina",
+                },
+                max_results=None,
+            )
+            new_samples = results.get_first_n_results(None)
+        except:
+            new_samples = []
 
-        while len(runsamples) // 99 >= next_page:
-            # print(order)
-            samples = Bfab.read(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"includeruns":True,"type":"Library on Run - Illumina"})
-            # samples = B.read(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"type":"Library on Run - Illumina","containerid":str(order)})
-            if type(samples) != type(None):
-                new_samples += samples
-                next_page += 1
-            else:
-                break
+        all_samples = []
         for samp in new_samples:
             if int(samp.container._id) == int(order):
                 all_samples.append(samp)
@@ -231,14 +221,20 @@ def RePool(data, OR, pooling_volume, Bfab):
             except:
                 tubeids.append("None")
 
-        df = pd.DataFrame({"tubeID":tubeids, "reads":read_counts})
+        df = pd.DataFrame({"tubeID": tubeids, "reads": read_counts})
 
         print(df)
 
         for i in list(df['reads']):
             if int(i) != 0:
-                # corr.append(round(float(pooling_volume)*s.median([float(j) for j in list(df['reads'])])/int(i), 3))
-                corr.append(round(float(pooling_volume)*s.median([float(j) for j in list(df['reads'])])/int(i), 3))
+                corr.append(
+                    round(
+                        float(pooling_volume)
+                        * s.median([float(j) for j in list(df['reads'])])
+                        / int(i),
+                        3,
+                    )
+                )
             else:
                 corr.append(0)
         df['correction_factor'] = corr
@@ -247,16 +243,20 @@ def RePool(data, OR, pooling_volume, Bfab):
 
         dfs.append(df)
     df2 = pd.concat(dfs)
-    df = pd.DataFrame({"Well":df2['groupNum'],
-                       "PlatePosition":df2['gridPosition'],
-                       "ID":df2['sampleID'],
-                       "tube_ID":df2['tubeID'],
-                       "volume_to_pool":df2['correction_factor']})
+    df = pd.DataFrame(
+        {
+            "Well": df2['groupNum'],
+            "PlatePosition": df2['gridPosition'],
+            "ID": df2['sampleID'],
+            "tube_ID": df2['tubeID'],
+            "volume_to_pool": df2['correction_factor'],
+        }
+    )
 
     srtd = sortPlate()
     normalize_sort = [srtd[elt] for elt in list(df['PlatePosition'])]
     df['srt'] = normalize_sort
-    df = df.sort_values(by = 'srt', ascending=True)
+    df = df.sort_values(by='srt', ascending=True)
     df = df.drop(columns=['srt'])
 
     return df
@@ -488,7 +488,7 @@ def RePool(data, OR, pooling_volume, Bfab):
             if container_id == str(order) and container_classname == "order":
                 all_samples.append(samp)
 
-        # print("Filtered samples for order", order, ":", all_samples)
+        #print("Filtered samples for order", order, ":", all_samples)
 
 
         tubeids = []
