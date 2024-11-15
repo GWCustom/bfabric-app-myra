@@ -58,13 +58,6 @@ def token_to_data(token: str) -> str:
 
         return json.dumps(token_data)
     
-"""
-def token_response_to_bfabric(token_response: dict) -> str:
-
-    bfabric_wrapper = bfabric.Bfabric(login=token_response['user_data'], password=token_response['userWsPassword'], webbase=token_response['webbase_data'])
-
-    return bfabric_wrapper
-"""
 
 def token_response_to_bfabric(token_response: dict) -> str:
 
