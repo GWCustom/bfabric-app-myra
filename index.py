@@ -198,7 +198,7 @@ def generate_iseq_selectors(data, ftype, token):
             wrapper = auth_utils.token_response_to_bfabric(tdata)
 
             try:
-                ress = wrapper.read("sample", {"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"})
+                ress = wrapper.read("sample", {"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"}, max_results=None)
             except Exception as e:
                 ress = []
 
@@ -219,7 +219,7 @@ def generate_iseq_selectors(data, ftype, token):
 
             # Fetch the run data if runs list is populated
             for run in runs:
-                res_run = wrapper.read("run", {"id": str(run)})
+                res_run = wrapper.read("run", {"id": str(run)}, max_results=None)
                 if res_run and "instrument" in res_run[0] and (
                     "iseq" in str(res_run[0]["instrument"]).lower() or str(res_run[0].get("qc", "false")) == "true"
                 ):

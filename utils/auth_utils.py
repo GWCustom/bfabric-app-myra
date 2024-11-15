@@ -101,7 +101,7 @@ def entity_data(token_data: dict) -> str:
     entity_id = token_data.get('entity_id_data', None)
 
     if wrapper and entity_class and endpoint and entity_id:
-        entity_data_dict = wrapper.read(endpoint=endpoint, obj={"id": entity_id})[0]
+        entity_data_dict = wrapper.read(endpoint=endpoint, obj={"id": entity_id}, max_results=None)[0]
         
         if entity_data_dict:
             json_data = json.dumps({

@@ -176,7 +176,7 @@ def RePool(data, OR, pooling_volume, Bfab):
         tmp = data[data['container'] == order]
         # print(tmp)
         try:
-            run = Bfab.read(endpoint="run", obj={"id": str(OR[order])})
+            run = Bfab.read(endpoint="run", obj={"id": str(OR[order])}, max_results=None)
         except:
             run = []
         for i in run:
@@ -272,7 +272,7 @@ def get_plate_details(plate_id, pool_volume, wrapper):
     librarypassed = []
 
     # Get plate object from bfabric
-    res = B.read(endpoint='plate', obj={'id': str(plate_id)})
+    res = B.read(endpoint='plate', obj={'id': str(plate_id)}, max_results=None)
     print("Plate Data:", res[0])  # Debug output to verify the response
     plate = res[0]
 
@@ -284,7 +284,7 @@ def get_plate_details(plate_id, pool_volume, wrapper):
     gridPosition = [sample.get('_gridposition', "NA") for sample in plate.get("sample", [])]
     volume_to_pool = [pool_volume] * len(IDS)  # Pool volume for each sample
 
-    res2 = B.read(endpoint='sample', obj={'id': IDS})
+    res2 = B.read(endpoint='sample', obj={'id': IDS}, max_results=None)
     print("Detailed Sample Data:", res2)  # Debug output for detailed data
 
     for bf_sample in res2:
@@ -440,7 +440,7 @@ def RePool(data, OR, pooling_volume, Bfab):
         tmp = data[data['container'] == order]
 
         try:    
-            run = Bfab.read(endpoint="run", obj={"id": str(OR[order])})
+            run = Bfab.read(endpoint="run", obj={"id": str(OR[order])}, max_results=None)
             print(f"Run data for order {order}:", run[0])  # Shows run data for debugging
         except Exception as e:
             print(f"Error in reading run for order {order}: {e}")
@@ -468,7 +468,8 @@ def RePool(data, OR, pooling_volume, Bfab):
                     "id": runsamples[99 * next_page : min(99 * next_page + 99, len(runsamples))],
                     "includeruns": True,
                     "type": "Library on Run - Illumina"
-                }
+                },
+                max_results=None
             )
             if samples:
                 new_samples.extend(samples)
