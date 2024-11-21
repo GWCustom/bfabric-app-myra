@@ -198,58 +198,53 @@ def generate_iseq_selectors(data, ftype, token):
             wrapper = auth_utils.token_response_to_bfabric(tdata)
 
             try:
-                ress = wrapper.read_object("sample", {"tubeid":list(tmp['tubeID']),"includeruns":True,"type":"Library on Run - Illumina"})
-            except:
+                ress = wrapper.read("sample", {"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"}, max_results=None)
+            except Exception as e:
                 ress = []
 
-            if type(ress) != type(None):
-            
+            if ress:
                 for res in ress:
-                    if hasattr(res, "run"):
-                        for w in res.run:
+                    # Try to access the 'run' attribute if it exists
+                    if 'run' in res:
+                        for w in res['run']:
                             try:
-                                runs.append(w._id)
-                            except:
-                                pass
-                    else: 
-                        print("No run attribute for sample "+str(res._id))
-
+                                runs.append(w['id'])
+                            except KeyError:
+                                print("Error: Missing '_id' in run data")
+                    else:
+                        print(f"No run attribute found for sample {res.get('id', 'unknown ID')}")
+                        
             runs = list(set(runs))
-            iseqs = dict()
+            iseqs = {}
 
+            # Fetch the run data if runs list is populated
             for run in runs:
-                res = wrapper.read_object("run", {"id":str(run)})
-                # res = tdata['bfabric_wrapper'].read_object("run", {"id":str(run)})
-                if "iseq" in str(res[0].instrument).lower() or str(res[0].qc) == "true":
-                    iseqs[str(run)]=res[0].name
+                res_run = wrapper.read("run", {"id": str(run)}, max_results=None)
+                if res_run and "instrument" in res_run[0] and (
+                    "iseq" in str(res_run[0]["instrument"]).lower() or str(res_run[0].get("qc", "false")) == "true"
+                ):
+                    iseqs[str(run)] = res_run[0]["name"]
 
-            order_runs[order] = iseqs.copy()
+            if iseqs:
+                order_runs[order] = iseqs.copy()
 
         send = [
             html.Div(
                 [   
                     html.P(
-                        "Order "+str(order),
-                        style={
-                            "font-size":"14px",
-                            "margin-bottom":"1px",
-                        }
+                        "Order " + str(order),
+                        style={"font-size": "14px", "margin-bottom": "1px"}
                     ),
                     dcc.Dropdown(
-                        id="order_"+str(order),
-                        options=[
-                            {
-                                "label": order_runs[order][elt],
-                                "value": elt
-                            } for elt in order_runs[order]
-                            ],
+                        id="order_" + str(order),
+                        options=[{"label": order_runs[order][elt], "value": elt} for elt in order_runs[order]],
                         clearable=False,
                         searchable=False,
                         value="",
-                        style={"padding":"2px"}
+                        style={"padding": "2px"}
                     ),
                 ],
-                style={"margin-bottom":"10px"}
+                style={"margin-bottom": "10px"}
             ) for order in order_runs
         ]
         # send.append(html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0))

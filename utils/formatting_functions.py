@@ -1,5 +1,4 @@
 import pandas as pd
-import bfabric
 import statistics as s
 import plotly.graph_objects as go
 import numpy as np
@@ -11,8 +10,6 @@ import os
 import pickle as pkl
 
 ## TODO Rewrite all of this: This is very old code, some of it is inefficient
-
-B = bfabric.Bfabric()
 
 def RC(barcode):
     if str(barcode).lower().startswith("si"):
@@ -54,7 +51,7 @@ def RS(barcode):
     else:
         return barcode
 
-def get_dataset(order_number):
+def gre(order_number, B):
 
     bc1s = []
     bc2s = []
@@ -62,22 +59,11 @@ def get_dataset(order_number):
     names = []
     tubeids = []
 
-    res, all_res = B.read_object(endpoint="sample", obj={"containerid":str(order_number)}, page=1), []
+    results = B.read(endpoint="sample", obj={"containerid": str(order_number)}, max_results=None)
+    samples = results.get_first_n_results(None)    
 
-    print(res)
-
-    next_page = 2
-    while res is not None and len(res):
-        all_res += res
-        try:
-            res = B.read_object(endpoint="sample", obj={"containerid":str(order_number)}, page=next_page)
-        except:
-            break
-        next_page += 1
-
-    samples = all_res
     # for i in range(19999999999999999999999999999999999999999999999):
-    #     samples = B.read_object(endpoint="sample", obj={"containerid":str(order_number)}, page=str(i))
+    #     samples = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=str(i))
     #     if type(samples) != type(None):
     #         all_samples += samples
     #     else:
@@ -158,7 +144,7 @@ def update_bfabric(df):
             
             # objs.append({"id":str(ids[i+itr*100]),"barcode1dmx":str(bc1[i+itr*100]),"barcode2dmx":str(bc2[i+itr*100])})
 
-        res = B.save_object(endpoint="sample", obj=objs)
+        res = B.save(endpoint="sample", obj=objs)
         # print(res)
         # res = B.save_object(endpoint="sample", obj={"id":"0","barcode1dmx":str(bc1[i]),"barcode2dmx":str(bc2[i])})
         # ress.append(res)
@@ -189,8 +175,8 @@ def RePool(data, OR, pooling_volume, Bfab):
     for order in OR:
         tmp = data[data['container'] == order]
         # print(tmp)
-        try:    
-            run = Bfab.read_object(endpoint="run", obj={"id":str(OR[order])})
+        try:
+            run = Bfab.read(endpoint="run", obj={"id": str(OR[order])}, max_results=None)
         except:
             run = []
         for i in run:
@@ -199,21 +185,22 @@ def RePool(data, OR, pooling_volume, Bfab):
             runsamples = [str(elt._id) for elt in run[0].sample]
         except:
             continue
-        # print("\n\n\nRUN SAMPLES\n\n\n")
-        # print(runsamples)
-        all_samples = []
-        new_samples = []
-        next_page = 0
+        # Fetch all samples in one call using max_results=None
+        try:
+            results = Bfab.read(
+                endpoint="sample",
+                obj={
+                    "id": runsamples,
+                    "includeruns": True,
+                    "type": "Library on Run - Illumina",
+                },
+                max_results=None,
+            )
+            new_samples = results.get_first_n_results(None)
+        except:
+            new_samples = []
 
-        while len(runsamples) // 99 >= next_page:
-            # print(order)
-            samples = Bfab.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"includeruns":True,"type":"Library on Run - Illumina"})
-            # samples = B.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"type":"Library on Run - Illumina","containerid":str(order)})
-            if type(samples) != type(None):
-                new_samples += samples
-                next_page += 1
-            else:
-                break
+        all_samples = []
         for samp in new_samples:
             if int(samp.container._id) == int(order):
                 all_samples.append(samp)
@@ -234,14 +221,20 @@ def RePool(data, OR, pooling_volume, Bfab):
             except:
                 tubeids.append("None")
 
-        df = pd.DataFrame({"tubeID":tubeids, "reads":read_counts})
+        df = pd.DataFrame({"tubeID": tubeids, "reads": read_counts})
 
         print(df)
 
         for i in list(df['reads']):
             if int(i) != 0:
-                # corr.append(round(float(pooling_volume)*s.median([float(j) for j in list(df['reads'])])/int(i), 3))
-                corr.append(round(float(pooling_volume)*s.median([float(j) for j in list(df['reads'])])/int(i), 3))
+                corr.append(
+                    round(
+                        float(pooling_volume)
+                        * s.median([float(j) for j in list(df['reads'])])
+                        / int(i),
+                        3,
+                    )
+                )
             else:
                 corr.append(0)
         df['correction_factor'] = corr
@@ -250,166 +243,110 @@ def RePool(data, OR, pooling_volume, Bfab):
 
         dfs.append(df)
     df2 = pd.concat(dfs)
-    df = pd.DataFrame({"Well":df2['groupNum'],
-                       "PlatePosition":df2['gridPosition'],
-                       "ID":df2['sampleID'],
-                       "tube_ID":df2['tubeID'],
-                       "volume_to_pool":df2['correction_factor']})
+    df = pd.DataFrame(
+        {
+            "Well": df2['groupNum'],
+            "PlatePosition": df2['gridPosition'],
+            "ID": df2['sampleID'],
+            "tube_ID": df2['tubeID'],
+            "volume_to_pool": df2['correction_factor'],
+        }
+    )
 
     srtd = sortPlate()
     normalize_sort = [srtd[elt] for elt in list(df['PlatePosition'])]
     df['srt'] = normalize_sort
-    df = df.sort_values(by = 'srt', ascending=True)
+    df = df.sort_values(by='srt', ascending=True)
     df = df.drop(columns=['srt'])
 
     return df
 
 
 def get_plate_details(plate_id, pool_volume, wrapper):
-
     df = pd.DataFrame()
     B = wrapper
 
-    parent = [] ####
-    sampleID = [] ####
-    container = [] ###
-    containerType = [] ####
-    containerNames = [] ####
-    iSeq = []
-    inputAmount = [] ####
-    inputVolume = [] ####
-    library_molarity = [] ####
-    target_molarity = [] ####
-    target_volume = [] ####
-    volume_to_pool = [] ####
-    gridPosition = [] ####
-    group = [] ####
-    tubeID = [] ####
-    inConc = []
-
-    # Get plate object from bfabric
-
-    if True:
-        res = B.read_object(endpoint='plate', obj={'id':str(plate_id)})
-        print(res)
-        plate = res[0]
-        plate_name = str(res[0].name)
-    else:
-        pass #TODO Add error handling
-
-    # Populate Dataframe
-
-    if res[0].type != "Illumina Library":
-        pass #TODO Add error handling
-
-    IDS = []
+    parent, sampleID, container, containerType, containerNames = [], [], [], [], []
+    inputAmount, inputVolume, library_molarity, target_molarity, target_volume = [], [], [], [], []
+    volume_to_pool, gridPosition, group, tubeID, inConc = [], [], [], [], []
     librarypassed = []
 
-    for x in range(len(res[0].sample)):  #for all samples on plate
-        IDS.append(res[0].sample[x]._id)
-        print("Querying details of sample " +str(res[0].sample[x]._id) + " (position "+str(res[0].sample[x]._gridposition)+ ") from plate "+str(res[0].name))
+    # Get plate object from bfabric
+    res = B.read(endpoint='plate', obj={'id': str(plate_id)}, max_results=None)
+    print("Plate Data:", res[0])  # Debug output to verify the response
+    plate = res[0]
 
-        try:
-            gridPosition.append(res[0].sample[x]._gridposition)  # get sample plate position
-        except:
-            gridPosition.append("NA")
+    # Check plate type
+    if plate.get('type') != "Illumina Library":
+        pass
 
-        try:
-            volume_to_pool.append(pool_volume)  # get sample plate position
-        except:
-            volume_to_pool.append("NA")
+    IDS = [sample["id"] for sample in plate.get("sample", [])]
+    gridPosition = [sample.get('_gridposition', "NA") for sample in plate.get("sample", [])]
+    volume_to_pool = [pool_volume] * len(IDS)  # Pool volume for each sample
 
-    res2 = B.read_object(endpoint='sample', obj={'id':IDS})
+    res2 = B.read(endpoint='sample', obj={'id': IDS}, max_results=None)
+    print("Detailed Sample Data:", res2)  # Debug output for detailed data
 
     for bf_sample in res2:
+        sampleID.append(bf_sample.get("id", "NA"))
+        target_volume.append(bf_sample.get("volumetarget", "NA"))
+        target_molarity.append(bf_sample.get("molaritytarget", "NA"))
+        library_molarity.append(bf_sample.get("molarity", "NA"))
+        
+        inputAmount.append(float(bf_sample.get("amountinput", "NA")) if bf_sample.get("amountinput") else "NA")
+        inputVolume.append(float(bf_sample.get("volumeinput", "NA")) if bf_sample.get("volumeinput") else "NA")
+        
+        parent_data = bf_sample.get("parent", [{}])
+        parent.append(parent_data[0].get("id", "NA"))
+        
+        container_data = bf_sample.get("container", {})
+        container.append(container_data.get("id", "NA"))
+        containerType.append(container_data.get("classname", "NA"))
+        
+        tubeID.append(bf_sample.get("tubeid", "NA"))
+        inConc.append(bf_sample.get("concentrationinputqc", "NA"))
+        librarypassed.append(bf_sample.get("qcpassed", "NA"))
 
-        try:
-            sampleID.append(bf_sample._id) # get sample id
-        except:
-            sampleID.append("NA")
-
-        try:
-            target_volume.append(bf_sample.volumetarget)
-        except:
-            target_volume.append("NA")
-
-        try:
-            target_molarity.append(bf_sample.molaritytarget)
-        except:
-            target_molarity.append("NA")
-
-        try:
-            library_molarity.append(bf_sample.molarity)
-        except:
-            library_molarity.append("NA")
-
-        try:
-            inputAmount.append(float(bf_sample.amountinput))
-        except:
-            inputAmount.append("NA")
-
-        try:
-            inputVolume.append(float(bf_sample.volumeinput))
-        except:
-            inputVolume.append("NA")
-
-        try:
-            parent.append(bf_sample.parent[0]._id)
-        except:
-            parent.append("NA")
-
-        try:
-            container.append(bf_sample.container._id)
-        except:
-            container.append("NA")
-
-        try:
-            containerType.append(bf_sample.container._classname)
-        except:
-            containerType.append("NA")
-
-        try:
-            tubeID.append(bf_sample.tubeid)
-        except:
-            tubeID.append("NA")
-
-        try:
-            inConc.append(bf_sample.concentrationinputqc)
-        except:
-            inConc.append("NA")
-
-        try:
-            librarypassed.append(bf_sample.qcpassed)
-        except:
-            librarypassed.append("NA")
-
+        # Formulate container names and group information
         if containerType[-1] != "NA" and container[-1] != "NA":
-            containerNames.append(str(bf_sample.container._classname) + '_' + str(bf_sample.container._id))
-            group.append(str(bf_sample.container._classname) + '_' + str(bf_sample.container._id))
+            containerNames.append(f"{containerType[-1]}_{container[-1]}")
+            group.append(f"{containerType[-1]}_{container[-1]}")
+        else:
+            group.append("NA")
 
+    # Remove duplicates from containerNames for unique naming
     containerNames = list(set(containerNames))
-    containerDict = {containerNames[i]:i+1 for i in range(len(containerNames))}
+    containerDict = {containerNames[i]: i + 1 for i in range(len(containerNames))}
 
-    df_orig = pd.DataFrame({'sampleID':IDS,
-        'volumeToPool':volume_to_pool,
-        'gridPosition':gridPosition})
+    # Create DataFrames for original and detailed sample data
+    df_orig = pd.DataFrame({
+        'sampleID': IDS,
+        'volumeToPool': volume_to_pool,
+        'gridPosition': gridPosition
+    })
 
-    df['groupNum']=[containerDict[elt] for elt in group]
-    df['parent']=parent
-    df['sampleID']=sampleID
-    df['container']=container
-    df['containerType']=containerType
-    df['inputAmount']=inputAmount
-    df['inputVolume']=inputVolume
-    df['libraryMolarity']=library_molarity
-    df['targetMolarity']=target_molarity
-    df['targetVolume']=target_volume
-    df['group']=group
-    df['tubeID']=tubeID
-    df['inConc']=inConc
-    df['libraryPassed']=librarypassed
+    df = pd.DataFrame({
+        'sampleID': sampleID,
+        'parent': parent,
+        'container': container,
+        'containerType': containerType,
+        'inputAmount': inputAmount,
+        'inputVolume': inputVolume,
+        'libraryMolarity': library_molarity,
+        'targetMolarity': target_molarity,
+        'targetVolume': target_volume,
+        'group': group,
+        'tubeID': tubeID,
+        'inConc': inConc,
+        'libraryPassed': librarypassed,
+        'groupNum': [containerDict.get(elt, "NA") for elt in group]
+    })
 
+    # Merge the original data with detailed sample data
     df = df.merge(df_orig, how="inner", on="sampleID")
+
+    print("Final DataFrame with Plate and Sample Details:")
+    print(df)
 
     return df
 
@@ -501,88 +438,103 @@ def RePool(data, OR, pooling_volume, Bfab):
     dfs = []
     for order in OR:
         tmp = data[data['container'] == order]
-        # print(tmp)
+
         try:    
-            run = Bfab.read_object(endpoint="run", obj={"id":str(OR[order])})
-        except:
+            run = Bfab.read(endpoint="run", obj={"id": str(OR[order])}, max_results=None)
+            print(f"Run data for order {order}:", run[0])  # Shows run data for debugging
+        except Exception as e:
+            print(f"Error in reading run for order {order}: {e}")
             run = []
-        for i in run:
-            print(i)
-        try:
-            runsamples = [str(elt._id) for elt in run[0].sample]
-        except:
+        
+        if run and 'sample' in run[0]:
+            try:
+                runsamples = [str(sample['id']) for sample in run[0]['sample']]
+                print(f"Sample IDs for run in order {order}:", runsamples)
+            except KeyError:
+                print("Error: 'id' not found in some samples within run.")
+                continue
+        else:
+            print(f"No 'sample' field found or 'sample' is empty in run for order {order}. Full run data:", run)
             continue
-        # print("\n\n\nRUN SAMPLES\n\n\n")
-        # print(runsamples)
+
         all_samples = []
         new_samples = []
         next_page = 0
 
         while len(runsamples) // 99 >= next_page:
-            # print(order)
-            samples = Bfab.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"includeruns":True,"type":"Library on Run - Illumina"})
-            # samples = B.read_object(endpoint="sample", obj={"id":runsamples[99*next_page:min(99*next_page+99, len(runsamples))],"type":"Library on Run - Illumina","containerid":str(order)})
-            if type(samples) != type(None):
-                new_samples += samples
+            samples = Bfab.read(
+                endpoint="sample",
+                obj={
+                    "id": runsamples[99 * next_page : min(99 * next_page + 99, len(runsamples))],
+                    "includeruns": True,
+                    "type": "Library on Run - Illumina"
+                },
+                max_results=None
+            )
+            if samples:
+                new_samples.extend(samples)
                 next_page += 1
             else:
                 break
+
         for samp in new_samples:
-            if int(samp.container._id) == int(order):
+            container_info = samp.get("container", {})
+            container_id = str(container_info.get("id", ""))
+            container_classname = container_info.get("classname", "")
+            
+            # Debugging output to confirm container ID and classname for each sample
+            # print("Sample container info:", container_info)
+
+            # Check if container matches order and classname is "order"
+            if container_id == str(order) and container_classname == "order":
                 all_samples.append(samp)
-            else:
-                continue
+
+        #print("Filtered samples for order", order, ":", all_samples)
+
 
         tubeids = []
         read_counts = []
         corr = []
 
         for sample in all_samples:
-            try:
-                read_counts.append(sample.readcount)
-            except:
-                read_counts.append(0)
-            try:
-                tubeids.append(sample.tubeid)
-            except:
-                tubeids.append("None")
+            read_counts.append(sample.get("readcount", 0))
+            tubeids.append(sample.get("tubeid", "None"))
 
-        df = pd.DataFrame({"tubeID":tubeids, "reads":read_counts})
+        df = pd.DataFrame({"tubeID": tubeids, "reads": read_counts})
+        print("df", df)
 
-        print(df)
-
-        for i in list(df['reads']):
+        for i in df['reads']:
             if int(i) != 0:
-                # corr.append(round(float(pooling_volume)*s.median([float(j) for j in list(df['reads'])])/int(i), 3))
-                corr.append(round(float(pooling_volume)*s.median([float(j) for j in list(df['reads'])])/int(i), 3))
+                correction = round(float(pooling_volume) * s.median([float(j) for j in df['reads']]) / int(i), 3)
+                corr.append(correction)
             else:
                 corr.append(0)
+        
         df['correction_factor'] = corr
-
         df = df.merge(tmp, how="inner", on="tubeID")
-
         dfs.append(df)
 
     if dfs:
         df2 = pd.concat(dfs)
-        df = pd.DataFrame({"Well":df2['groupNum'],
-                       "PlatePosition":df2['gridPosition'],
-                       "ID":df2['sampleID'],
-                       "tube_ID":df2['tubeID'],
-                       "volume_to_pool":df2['correction_factor']})
+        df = pd.DataFrame({
+            "Well": df2['groupNum'],
+            "PlatePosition": df2['gridPosition'],
+            "ID": df2['sampleID'],
+            "tube_ID": df2['tubeID'],
+            "volume_to_pool": df2['correction_factor']
+        })
 
         srtd = sortPlate()
-        normalize_sort = [srtd[elt] for elt in list(df['PlatePosition'])]
+        normalize_sort = [srtd[elt] for elt in df['PlatePosition']]
         df['srt'] = normalize_sort
-        df = df.sort_values(by = 'srt', ascending=True)
-        df = df.drop(columns=['srt'])
+        df = df.sort_values(by='srt', ascending=True).drop(columns=['srt'])
     else:
         df = pd.DataFrame({
-            "Well":[],
-            "PlatePosition":[],
-            "ID":[],
-            "tube_ID":[],
-            "volume_to_pool":[]
+            "Well": [],
+            "PlatePosition": [],
+            "ID": [],
+            "tube_ID": [],
+            "volume_to_pool": []
         })
 
     return df
