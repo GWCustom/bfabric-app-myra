@@ -8,6 +8,7 @@ import os
 import bfabric
 from bfabric import BfabricAuth
 from bfabric import BfabricClientConfig
+from .objects import Logger
 
 VALIDATION_URL = "https://fgcz-bfabric.uzh.ch/bfabric/rest/token/validate?token="
 HOST = "fgcz-bfabric.uzh.ch"
@@ -53,7 +54,8 @@ def token_to_data(token: str) -> str:
             webbase_data = environment_dict.get(userinfo['environment'], None),
             application_params_data = {},
             application_data = str(userinfo['applicationId']),
-            userWsPassword = userinfo['userWsPassword']
+            userWsPassword = userinfo['userWsPassword'],
+            jobId = userinfo['jobId']
         )
 
         return json.dumps(token_data)
@@ -99,9 +101,21 @@ def entity_data(token_data: dict) -> str:
     entity_class = token_data.get('entityClass_data', None)
     endpoint = entity_class_map.get(entity_class, None)
     entity_id = token_data.get('entity_id_data', None)
+    jobId = token_data.get('jobId', None)
+    username = token_data.get("user_data", "None")
 
     if wrapper and entity_class and endpoint and entity_id:
-        entity_data_dict = wrapper.read(endpoint=endpoint, obj={"id": entity_id}, max_results=None)[0]
+
+        L = Logger(jobid=jobId, username=username)
+
+        entity_data_dict = L.logthis(
+            api_call=wrapper.read,
+            endpoint=endpoint,
+            obj={"id": entity_id},
+            max_results=None,
+            table_params=None,
+            make_log_api_call = True
+        )[0]
         
         if entity_data_dict:
             json_data = json.dumps({
@@ -111,7 +125,7 @@ def entity_data(token_data: dict) -> str:
                 "name": entity_data_dict.get("name"),
             })
             print(json_data)
-            return json_data
+            return json_data, L
         else:
             print("entity_data_dict is empty or None")
             return None
@@ -120,7 +134,7 @@ def entity_data(token_data: dict) -> str:
         return None
 
 
-def send_bug_report(token_data, entity_data, description):
+def send_bug_report(token_data, entity_data, description, log_data):
 
     mail_string = f"""
     BUG REPORT FROM MYRA-CSV-APP
@@ -146,5 +160,8 @@ def send_bug_report(token_data, entity_data, description):
     print(mail)
 
     os.system(mail)
+
+    L = Logger.from_pickle(log_data)
+    L.log_operation("bug_report", description)
 
     return True

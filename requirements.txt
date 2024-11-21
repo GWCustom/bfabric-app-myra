@@ -1,4 +1,5 @@
 blinker==1.8.2
+bfabric @ git+https://github.com/fgcz/bfabricPy.git@8c74f22ccdf1f370ed93e003cd8aad9ea42a4b98
 certifi==2024.6.2
 charset-normalizer==3.3.2
 click==8.1.7
