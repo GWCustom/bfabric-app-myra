@@ -359,7 +359,7 @@ def get_plate_details(plate_id, pool_volume, wrapper, log_data):
         inputVolume.append(float(bf_sample.get("volumeinput", "NA")) if bf_sample.get("volumeinput") else "NA")
         
         parent_data = bf_sample.get("parent", [{}])
-        parent.append(parent_data[0].get("_id", "NA"))
+        parent.append(parent_data[0].get("id", "NA"))
         
         container_data = bf_sample.get("container", {})
         container.append(container_data.get("id", "NA"))
