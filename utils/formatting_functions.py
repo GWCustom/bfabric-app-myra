@@ -12,176 +12,6 @@ from utils.objects import Logger
 
 ## TODO Rewrite all of this: This is very old code, some of it is inefficient
 
-def RC(barcode):
-    if str(barcode).lower().startswith("si"):
-        return barcode
-    if type(barcode) != type(0.123325):
-        BC = str(barcode).lower()[::-1].strip()
-
-        associations = {"a":"T",
-                        "t":"A",
-                        "c":"G",
-                        "g":"C"}
-        newstring = ""
-
-        for character in BC:
-            try:
-                newstring += associations[character]
-            except:
-                continue
-        return newstring
-    else:
-        return barcode
-
-def RS(barcode):
-    if str(barcode).lower().startswith("si"):
-        return barcode
-    if type(barcode) != type(0.1233237435612354347451235):
-        BC = str(barcode).lower()[::-1].strip()
-        associations = {"a":"A",
-                        "t":"T",
-                        "c":"C",
-                        "g":"G"}
-        newstring = ""
-        for character in BC:
-            try:
-                newstring += associations[character]
-            except:
-                continue
-        return newstring
-    else:
-        return barcode
-
-def gre(order_number, B, log_data):
-
-    bc1s = []
-    bc2s = []
-    ids = []
-    names = []
-    tubeids = []
-
-    L = Logger.from_pickle(log_data)
-
-    #results = B.read(endpoint="sample", obj={"containerid": str(order_number)}, max_results=None)
-
-    results = L.logthis(
-        api_call=B.read,
-        endpoint="sample",
-        obj={"containerid": str(order_number)},
-        max_results=None,
-        table_params={},
-        make_log_api_call = True,
-        )
-
-
-    samples = results.get_first_n_results(None)    
-
-    # for i in range(19999999999999999999999999999999999999999999999):
-    #     samples = B.read(endpoint="sample", obj={"containerid":str(order_number)}, page=str(i))
-    #     if type(samples) != type(None):
-    #         all_samples += samples
-    #     else:
-    #         break
-
-    # samples = all_samples
-
-    for sample in samples:
-        # if sample.type == "Library - Illumina" or sample.type == "User Library in Pool":
-        if sample.type == "Library on Run - Illumina":
-            ids.append(sample._id)
-
-            try:
-                tubeids.append(sample.tubeid)
-            except:
-                tubeids.append(None)
-            try:
-                names.append(sample.name)
-            except:
-                names.append(None)
-            try:
-                bc1s.append(sample.multiplexiddmx)
-            except:
-                bc1s.append(None)
-            try:
-                bc2s.append(sample.multiplexid2dmx)
-            except:
-                bc2s.append(None)
-        else:
-            continue
-
-    final = pd.DataFrame({
-        "Sample ID":ids,
-        "Tube ID":tubeids,
-        "Name":names,
-        "Barcode 1":bc1s,
-        "Barcode 2":bc2s
-    })
-    final = final.sort_values(by=['Sample ID'], ascending=True)
-    # print(final)
-
-    return final
-
-
-# This function is not used in the current version of the application!
-def update_bfabric(df, log_data):
-
-    print("STARTING")
-
-    errors = []
-    ress = []
-    ids = list(df['Sample ID'])
-
-    print(ids)
-    bc1 = [str(i) if type(i) != type(0.1) else "" for i in list(df['Barcode 1'])]
-    bc2 = [str(i) if type(i) != type(0.1) else "" for i in list(df['Barcode 2'])]
-    # Remove Whitespace #
-    bc1 = [''.join(sentence.split()) for sentence in bc1]
-    # print(bc1)
-    bc2 = [''.join(sentence.split()) for sentence in bc2]
-    # print(bc2) 
-    n_itr = (len(ids) // 100) + 1
-
-    print(n_itr)
-
-    # for i in range(len(ids)):
-    for itr in range(n_itr):
-        # print("ITR: " + str(itr) + " of " + str(n_itr))
-        objs = []
-        for i in range(100):
-            if i+itr*100 >= len(ids):
-                break            
-            objs.append(
-                {
-                 "id":str(ids[i+itr*100]),
-                 "multiplexiddmx":str(bc1[i+itr*100]),
-                 "multiplexid2dmx":str(bc2[i+itr*100])
-                }
-            )
-            
-            # objs.append({"id":str(ids[i+itr*100]),"barcode1dmx":str(bc1[i+itr*100]),"barcode2dmx":str(bc2[i+itr*100])})
-
-
-        L = Logger.from_pickle(log_data)
-
-        res = L.logthis(
-            api_call=B.save,
-            endpoint="sample",
-            obj=objs,
-            make_log_api_call = True,
-        )
-
-
-        #res = B.save(endpoint="sample", obj=objs)
-        # print(res)
-        # res = B.save_object(endpoint="sample", obj={"id":"0","barcode1dmx":str(bc1[i]),"barcode2dmx":str(bc2[i])})
-        # ress.append(res)
-        ress += res
-        if "errorreport" in str(res[0]):
-            print("Recieved Error Report from Bfabric")
-            errors.append(str(ids[i]))
-
-    return (ress, errors)
-
 def sortPlate():
 
     letters = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H']
@@ -195,11 +25,16 @@ def sortPlate():
 
     return orderings
 
-def RePool(data, OR, pooling_volume, Bfab, log_data):
+def RePool(data, OR, pooling_volume, Bfab, token_data, dropdown):
     data['container'] = [str(elt) for elt in list(data['container'])]
     df = data[data['container'].isin(list(OR.keys()))]
     dfs = []
-    L = Logger.from_pickle(log_data)
+
+    jobId = token_data.get('jobId', None)
+    username = token_data.get("user_data", "None")
+
+    L = Logger(jobid=jobId, username=username)
+
     for order in OR:
         tmp = data[data['container'] == order]
         # print(tmp)
@@ -210,18 +45,30 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
                 endpoint="run",
                 obj={"id": str(OR[order])},
                 max_results=None,
-                table_params={},
-                make_log_api_call = True,
+                params={'action': dropdown, 'pooling volume': pooling_volume},
+                flush_logs = False,
             )
 
-        except:
+        except Exception as e:
             run = []
+            L.log_operation(
+                    "Error",
+                    f"Failed to fetch run data for order {order}. Exception: {e}",
+                    params={"order": order},
+                    flush_logs=False
+                )
         for i in run:
             print(i)
         try:
             runsamples = [str(elt._id) for elt in run[0].sample]
-        except:
-            continue
+        except Exception as e:
+                L.log_operation(
+                    "Error",
+                    f"Failed to fetch samples from run data for order {order}. Exception: {e}",
+                    params={"order": order},
+                    flush_logs=False
+                )
+                continue
         # Fetch all samples in one call using max_results=None
         try:
             #results = Bfab.read(endpoint="sample",obj={"id": runsamples,"includeruns": True,"type": "Library on Run - Illumina"}, max_results=None,)
@@ -232,13 +79,19 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
                 endpoint="sample",
                 obj={"id": runsamples,"includeruns": True,"type": "Library on Run - Illumina"},
                 max_results=None,
-                table_params={},
-                make_log_api_call = True,
+                params={'action': dropdown, 'pooling volume': pooling_volume},
+                flush_logs = False,
             )
 
             new_samples = results.get_first_n_results(None)
-        except:
-            new_samples = []
+        except Exception as e:
+                new_samples = []
+                L.log_operation(
+                    "Error",
+                    f"Failed to fetch sample data for runsamples {runsamples}. Exception: {e}",
+                    params={"runsamples": runsamples},
+                    flush_logs=False
+                )
 
         all_samples = []
         for samp in new_samples:
@@ -256,10 +109,23 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
                 read_counts.append(sample.readcount)
             except:
                 read_counts.append(0)
+                L.log_operation(
+                    "Error",
+                    f"Failed to fetch read count for sample {sample}. Exception: {e}",
+                    params={"sample": sample},
+                    flush_logs=False
+                )
             try:
                 tubeids.append(sample.tubeid)
-            except:
+            except Exception as e:
                 tubeids.append("None")
+                L.log_operation(
+                    "Error",
+                    f"Failed to fetch tube ID for sample {sample}. Exception: {e}",
+                    params={"sample": sample},
+                    flush_logs=False
+                )
+
 
         df = pd.DataFrame({"tubeID": tubeids, "reads": read_counts})
 
@@ -299,13 +165,18 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
     df = df.sort_values(by='srt', ascending=True)
     df = df.drop(columns=['srt'])
 
+    L.flush_logs()
     return df
 
 
-def get_plate_details(plate_id, pool_volume, wrapper, log_data):
+def get_plate_details(plate_id, pool_volume, wrapper, token_data, dropdown):
     df = pd.DataFrame()
     B = wrapper
-    L = Logger.from_pickle(log_data)
+    
+    jobId = token_data.get('jobId', None)
+    username = token_data.get("user_data", "None")
+
+    L = Logger(jobid=jobId, username=username)
 
     parent, sampleID, container, containerType, containerNames = [], [], [], [], []
     inputAmount, inputVolume, library_molarity, target_molarity, target_volume = [], [], [], [], []
@@ -320,8 +191,8 @@ def get_plate_details(plate_id, pool_volume, wrapper, log_data):
         endpoint="plate",
         obj={'id': str(plate_id)},
         max_results=None,
-        table_params={},
-        make_log_api_call = True,
+        params={'action': dropdown, 'pooling volume': pool_volume},
+        flush_logs = True,
     )
 
 
@@ -343,8 +214,8 @@ def get_plate_details(plate_id, pool_volume, wrapper, log_data):
         endpoint="sample",
         obj={'id': IDS},
         max_results=None,
-        table_params={},
-        make_log_api_call = True,
+        params={'action': dropdown, 'pooling volume': pool_volume},
+        flush_logs = True,
     )
 
     print("Detailed Sample Data:", res2)  # Debug output for detailed data
@@ -479,7 +350,7 @@ def Pool(md):
 
     return pool
 
-def RePool(data, OR, pooling_volume, Bfab, log_data):
+def RePool(data, OR, pooling_volume, Bfab, token_data, dropdown):
 
     print("-------------------")
     print("DATA")
@@ -498,7 +369,12 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
     data['container'] = [str(elt) for elt in list(data['container'])]
     df = data[data['container'].isin(list(OR.keys()))]
     dfs = []
-    L = Logger.from_pickle(log_data)
+
+    jobId = token_data.get('jobId', None)
+    username = token_data.get("user_data", "None")
+
+    L = Logger(jobid=jobId, username=username)
+
     for order in OR:
         tmp = data[data['container'] == order]
 
@@ -511,12 +387,18 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
                     endpoint="run",
                     obj={"id": str(OR[order])},
                     max_results=None,
-                    table_params={},
-                    make_log_api_call = True,
+                    params={'action': dropdown, 'pooling volume': pooling_volume},
+                    flush_logs = False,
                 )
 
             print(f"Run data for order {order}:", run[0])  # Shows run data for debugging
         except Exception as e:
+            L.log_operation(
+                    "Error",
+                    f"Failed to fetch run data for order {order}. Exception: {e}",
+                    params={"order": order},
+                    flush_logs=False,
+            )
             print(f"Error in reading run for order {order}: {e}")
             run = []
         
@@ -524,11 +406,23 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
             try:
                 runsamples = [str(sample['id']) for sample in run[0]['sample']]
                 print(f"Sample IDs for run in order {order}:", runsamples)
-            except KeyError:
+            except KeyError as e:
+                L.log_operation(
+                        "Error",
+                        f"Missing 'id' in samples for run in order {order}. Exception: {e}",
+                        params={"order": order},
+                        flush_logs=False,
+                )
                 print("Error: 'id' not found in some samples within run.")
                 continue
         else:
             print(f"No 'sample' field found or 'sample' is empty in run for order {order}. Full run data:", run)
+            L.log_operation(
+                    "Error",
+                    f"No 'sample' field found or 'sample' is empty in run for order {order}.",
+                    params={"order": order},
+                    flush_logs=False,
+            )
             continue
 
         all_samples = []
@@ -556,8 +450,8 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
                     "type": "Library on Run - Illumina"
                     },
                     max_results=None,
-                    table_params={},
-                    make_log_api_call = True,
+                    params={'action': dropdown, 'pooling volume': pooling_volume},
+                    flush_logs = True,
                 )
 
             if samples:
@@ -625,5 +519,5 @@ def RePool(data, OR, pooling_volume, Bfab, log_data):
             "tube_ID": [],
             "volume_to_pool": []
         })
-
+    L.flush_logs()
     return df

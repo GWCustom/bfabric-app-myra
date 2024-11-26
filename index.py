@@ -99,20 +99,8 @@ app.layout = html.Div(
         dcc.Store(id='token', storage_type='session'), # Where we store the actual token
         dcc.Store(id='entity', storage_type='session'), # Where we store the entity data retrieved from bfabric
         dcc.Store(id='token_data', storage_type='session'), # Where we store the token auth response
-        dcc.Store(id='log', storage_type='session'), # Where we store the log data
-        dcc.Store(id='dummy-output', storage_type='memory'), # Dummy output for logger
     ],style={"width":"100vw", "overflow-x":"hidden", "overflow-y":"scroll"}
 )
-
-#Callback to safe the log data in the dcc store
-@app.callback(
-    Output('dummy-output', 'data'),#dummy output!
-    [Input('log', 'data')]
-)
-def process_data(log):
-    if log:
-        Logger.from_pickle(log)
-        return None  # Dummy output, not used
 
 #################### (3) app.callback ####################
 @app.callback(
@@ -125,8 +113,7 @@ def process_data(log):
         Output('session-details', 'children'),
         Output('load-val-2', 'disabled'),
         Output('pool_vol', 'disabled'),
-        Output('dropdown-select-file-type', 'disabled'),
-        Output('log', 'data')
+        Output('dropdown-select-file-type', 'disabled')
     ],
     [
         Input('url', 'search'),
@@ -137,19 +124,19 @@ def display_page(url_params):
     base_title = ""
 
     if not url_params:
-        return None, None, None, components.no_auth, base_title, None, True, True, True, None
+        return None, None, None, components.no_auth, base_title, None, True, True, True
     
     token = "".join(url_params.split('token=')[1:])
     tdata_raw = auth_utils.token_to_data(token)
     
     if tdata_raw:
         if tdata_raw == "EXPIRED":
-            return None, None, None, components.expired, base_title, None, True, True, True, None
+            return None, None, None, components.expired, base_title, None, True, True, True
 
         else: 
             tdata = json.loads(tdata_raw)
     else:
-        return None, None, None, components.no_auth, base_title, None, True, True, True, None
+        return None, None, None, components.no_auth, base_title, None, True, True, True
     
     if tdata:
         entity_data_json, logger_instance = auth_utils.entity_data(tdata)
@@ -157,10 +144,10 @@ def display_page(url_params):
         page_title = f"{tdata['entityClass_data']} - {entity_data['name']} - ID: - {tdata['entity_id_data']}" if tdata else "B-Fabric App Interface"
         session_details = [html.P("No session details available.")]
         if not tdata:
-            return token, None, None, components.no_auth, page_title,session_details, True, True, True, None
+            return token, None, None, components.no_auth, page_title,session_details, True, True, True
         
         elif not entity_data:
-            return token, None, None, components.no_entity, page_title,session_details,True, True, True, None
+            return token, None, None, components.no_entity, page_title,session_details,True, True, True
         
         else:
             if not DEV:
@@ -182,21 +169,23 @@ def display_page(url_params):
                         html.B("Current Time: "), str(dt.now().strftime("%Y-%m-%d %H:%M:%S"))
                     ])
                 ]
-                return token, tdata, entity_data, components.auth, page_title,session_details, False, False, False, logger_instance.to_pickle()
+                return token, tdata, entity_data, components.auth, page_title,session_details, False, False, False
             else: 
                 token_data = json.loads(auth_utils.token_to_data(token))
 
                 if entity_data:
-                    return token, tdata, entity_data, components.dev, page_title,session_details, True, True, True, None
+                    return token, tdata, entity_data, components.dev, page_title,session_details, True, True, True
     else: 
-        return None, None, None, components.no_auth, base_title,session_details, True, True, True, None
-
+        return None, None, None, components.no_auth, base_title,session_details, True, True, True
 @app.callback(output=Output("mal-card", "children"),
-              state=[State("dropdown-select-file-type", "value"),
-                     State("token", "data"),
-                     State("log", "data")],
-              inputs=[Input("input_df","data")])
-def generate_iseq_selectors(data, ftype, token, log_data):
+            state=[State("dropdown-select-file-type", "value"),
+                    State("token", "data"),
+                    State('token_data', 'data'),
+                    State("pool_vol", "value")],
+            inputs=[Input("input_df","data")],
+            prevent_initial_call=True
+            )
+def generate_iseq_selectors(data, ftype, token, token_data, pool_vol):
 
     tdata = json.loads(auth_utils.token_to_data(token))
 
@@ -206,26 +195,35 @@ def generate_iseq_selectors(data, ftype, token, log_data):
         df['ident'] = [str(i).split("_")[-1] for i in list(df['group'])]
         order_runs = dict()
 
+        wrapper = auth_utils.token_response_to_bfabric(tdata)
+        jobId = token_data.get('jobId', None)
+        username = token_data.get("user_data", "None")
+
+        L = Logger(jobid=jobId, username=username)
+
         for order in list(df['ident'].unique()):
             tmp = df[df['ident'] == order]
             runs = []
 
-            wrapper = auth_utils.token_response_to_bfabric(tdata)
-            L = Logger.from_pickle(log_data)
-
             try:
-                #ress = wrapper.read("sample", {"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"}, max_results=None)
+                # old api call - ress = wrapper.read("sample", {"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"}, max_results=None)
 
                 ress = L.logthis(
                     api_call=wrapper.read,
                     endpoint= "sample",
                     obj={"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"},
                     max_results=None,
-                    table_params={},
-                    make_log_api_call = True
+                    params={"action": ftype, "pooling volume": pool_vol},
+                    flush_logs = False
                 )
 
             except Exception as e:
+                L.log_operation(
+                        "Error",
+                        f"Failed to retrieve samples for order {order}. Exception: {e}",
+                        params={"action": ftype},
+                        flush_logs=False
+                )
                 ress = []
 
             if ress:
@@ -236,8 +234,20 @@ def generate_iseq_selectors(data, ftype, token, log_data):
                             try:
                                 runs.append(w['id'])
                             except KeyError:
+                                L.log_operation(
+                                        "Error",
+                                        f"Missing 'id' in run data for sample {res.get('id', 'unknown ID')}.",
+                                        params={"sample": res},
+                                        flush_logs=False
+                                )
                                 print("Error: Missing '_id' in run data")
                     else:
+                        L.log_operation(
+                                "Error",
+                                f"No 'run' attribute found for sample {res.get('id', 'unknown ID')}.",
+                                params={"sample": res},
+                                flush_logs=False
+                        )
                         print(f"No run attribute found for sample {res.get('id', 'unknown ID')}")
                         
             runs = list(set(runs))
@@ -253,8 +263,8 @@ def generate_iseq_selectors(data, ftype, token, log_data):
                     endpoint= "run",
                     obj={"id": str(run)},
                     max_results=None,
-                    table_params={},
-                    make_log_api_call = True
+                    params={"action": ftype, "pooling volume": pool_vol},
+                    flush_logs = False
                 )
 
 
@@ -286,6 +296,12 @@ def generate_iseq_selectors(data, ftype, token, log_data):
             ) for order in order_runs
         ]
         # send.append(html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0))
+        L.log_operation(
+            "Log",
+            "Submit iSeq Selections.",
+            params={"action": ftype, "pooling volume": pool_vol, f"Order {order}": iseqs},
+            flush_logs=True
+        )
         return send
     else:
         # return [html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0)]
@@ -304,29 +320,37 @@ def generate_iseq_selectors(data, ftype, token, log_data):
         State("token", "data"),
         State("entity", "data"),
         State("bug-description", "value"),
-        State("log", "data")
-    ]
+    ],
+    prevent_initial_call=True
 )
-def submit_bug_report(n_clicks, token, entity_data, bug_description, log_data):
+def submit_bug_report(n_clicks, token, entity_data, bug_description):
 
     if token: 
         token_data = json.loads(auth_utils.token_to_data(token))
     else:
         token_data = ""
 
+    jobId = token_data.get('jobId', None)
+    username = token_data.get("user_data", "None")
+
+    L = Logger(jobid=jobId, username=username)
+
     if n_clicks:
+        L.log_operation("bug_report", "Initiating bug report submission process.", params=None, flush_logs=False)
         try:
             sending_result = auth_utils.send_bug_report(
                 token_data=token_data,
                 entity_data=entity_data,
-                description=bug_description,
-                log_data = log_data
+                description=bug_description
             )
             if sending_result:
+                L.log_operation("bug_report", bug_description, params=None, flush_logs=True)
                 return True, False
             else:
+                L.log_operation("bug_report", "Failed to submit bug report!", params=None, flush_logs=True)
                 return False, True
         except:
+            L.log_operation("bug_report", "Failed to submit bug report!", params=None, flush_logs=True)
             return False, True
 
     return False, False
@@ -336,18 +360,23 @@ def submit_bug_report(n_clicks, token, entity_data, bug_description, log_data):
         Output("input_df", "data"),
         Output("submit_iseq", "disabled"),
     ],
-              inputs=[Input("load-val-2", "n_clicks")],
-                state=[State("token", "data"),
-                     State("pool_vol", "value"),
-                     State("log", "data")],prevent_initial_call=True)
-def generate_input_df(start, token, pool_vol, log_data):
+        inputs=[Input("load-val-2", "n_clicks")],
+        state=[State("token", "data"),
+               State("pool_vol", "value"),
+               State("token_data", "data"),
+               State("dropdown-select-file-type","value")
+    ],
+    prevent_initial_call=True
+    )
+
+def generate_input_df(start, token, pool_vol, token_data, dropdown):
 
     tdata = json.loads(auth_utils.token_to_data(token))
     plate = tdata['entity_id_data']
 
     wrapper = auth_utils.token_response_to_bfabric(tdata)
 
-    df = fns.get_plate_details(plate, pool_vol, wrapper, log_data)
+    df = fns.get_plate_details(plate, pool_vol, wrapper, token_data, dropdown)
 
     return df.to_dict("records"), False
 
@@ -359,8 +388,8 @@ def generate_input_df(start, token, pool_vol, log_data):
                     State("mal-card","children"),
                     State("pool_vol","value"),
                     State("token","data"),
-                    State("log", "data")],prevent_initial_call=True)
-def generate_table(data, iseq_submit, dropdown, card, pool_vol, token, log_data):
+                    State('token_data', 'data')],prevent_initial_call=True)
+def generate_table(data, iseq_submit, dropdown, card, pool_vol, token, token_data):
 
     print("CALLBACK IS RUNNING")
 
@@ -419,7 +448,7 @@ def generate_table(data, iseq_submit, dropdown, card, pool_vol, token, log_data)
             return
 
         wrapper = auth_utils.token_response_to_bfabric(json.loads(auth_utils.token_to_data(token)))
-        df = fns.RePool(data,orderRun,pool_vol,wrapper, log_data)
+        df = fns.RePool(data,orderRun,pool_vol,wrapper, token_data, dropdown)
 
     send = dash_table.DataTable(
                 df.to_dict("records"),

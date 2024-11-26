@@ -39,25 +39,34 @@ class Logger:
         # Decode the base64 string back to bytes and then unpickle
         return pickle.loads(base64.b64decode(pickle_object.get("data").encode('utf-8')))
 
-    def log_operation(self, operation: str, message: str, table_params: bool = False, make_log_api_call: bool = True):
+    def log_operation(self, operation: str, message: str, params = None, flush_logs: bool = True):
         """
-        Log an operation either locally (if make_log_api_call=False) or flush to the backend.
+        Log an operation either locally (if flush_logs=False) or flush to the backend.
+        Creates well-structured, readable log entries.
         """
-        #log_entry = f"[{str(dt.now())}] USER: {self.username} | {operation.upper()} - {table_params} - {message}"
+        # Define the timestamp format
+        timestamp = dt.now().strftime('%Y-%m-%d %H:%M:%S')
 
+        # Build the base log entry
         log_entry = (
-            f"[{dt.now().strftime('%Y-%m-%d %H:%M:%S')}] "  # Timestamp
-            f"USER: {self.username} | {operation.upper()} | "  # User and operation
-            f"{message} | "                      # QC Parameters
-            f"{table_params}"                    # Message
-            )
+            f"[{timestamp}] "      
+            f"USER: {self.username} | "
+            f"OPERATION: {operation.upper()} | "
+            f"MESSAGE: {message}"
+        )
 
+        # Add parameters if provided
+        if params is not None:
+            log_entry += f" | PARAMETERS: {params}"
 
-        if make_log_api_call:
+        # Flush or store the log entry
+        if flush_logs:
             self.logs.append(log_entry)  # Temporarily append for flushing
             self.flush_logs()  # Flush all logs, including the new one
         else:
             self.logs.append(log_entry)  # Append to local logs
+
+
 
     def flush_logs(self):
         """
@@ -73,7 +82,7 @@ class Logger:
         except Exception as e:
             print(f"Failed to save log to B-Fabric: {e}")
 
-    def logthis(self, api_call: callable, *args, table_params: bool = False , make_log_api_call: bool = True, **kwargs) -> any:
+    def logthis(self, api_call: callable, *args, params=None , flush_logs: bool = True, **kwargs) -> any:
         """
         Generic logging function to wrap any API call using a Logger instance.
         """
@@ -86,6 +95,6 @@ class Logger:
         result = api_call(*args, **kwargs)
 
         # Log the operation
-        self.log_operation(api_call.__name__, log_message, table_params, make_log_api_call=make_log_api_call)
+        self.log_operation(api_call.__name__, log_message, params, flush_logs=flush_logs)
 
         return result

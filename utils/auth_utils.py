@@ -106,8 +106,8 @@ def entity_data(token_data: dict) -> str:
             endpoint=endpoint,
             obj={"id": entity_id},
             max_results=None,
-            table_params=None,
-            make_log_api_call = True
+            params=None,
+            flush_logs = True
         )[0]
         
         if entity_data_dict:
@@ -127,7 +127,7 @@ def entity_data(token_data: dict) -> str:
         return None
 
 
-def send_bug_report(token_data, entity_data, description, log_data):
+def send_bug_report(token_data, entity_data, description):
 
     mail_string = f"""
     BUG REPORT FROM MYRA-CSV-APP
@@ -153,8 +153,5 @@ def send_bug_report(token_data, entity_data, description, log_data):
     print(mail)
 
     os.system(mail)
-
-    L = Logger.from_pickle(log_data)
-    L.log_operation("bug_report", description)
 
     return True
