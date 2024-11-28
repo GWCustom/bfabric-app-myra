@@ -52,7 +52,8 @@ pip install -r requirements.txt
 ```
 # PARAMS.py
 HOST = 0.0.0.0
-PORT = 8050 
+PORT = 8050
+CONFIG_FILE_PATH = "~/.bfabricpy.yml"
 ```
 
 7) Run the application 

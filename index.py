@@ -99,6 +99,7 @@ app.layout = html.Div(
         dcc.Store(id='token', storage_type='session'), # Where we store the actual token
         dcc.Store(id='entity', storage_type='session'), # Where we store the entity data retrieved from bfabric
         dcc.Store(id='token_data', storage_type='session'), # Where we store the token auth response
+        dcc.Store(id='input_df', storage_type='session'), # Where we store the input dataframe
     ],style={"width":"100vw", "overflow-x":"hidden", "overflow-y":"scroll"}
 )
 
@@ -476,4 +477,4 @@ def generate_table(data, iseq_submit, dropdown, card, pool_vol, token, token_dat
     return send
 
 if __name__ == '__main__':
-    app.run_server(debug=True, port=PORT, host=HOST)
+    app.run_server(debug=False, port=PORT, host=HOST)
