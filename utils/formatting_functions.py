@@ -30,10 +30,11 @@ def RePool(data, OR, pooling_volume, Bfab, token_data, dropdown):
     df = data[data['container'].isin(list(OR.keys()))]
     dfs = []
 
-    jobId = token_data.get('jobId', None)
-    username = token_data.get("user_data", "None")
-
-    L = Logger(jobid=jobId, username=username)
+    L = Logger(
+        jobid = token_data.get('jobId', None),
+        username= token_data.get("user_data", "None"),
+        environment= token_data.get("environment", "None")
+    )
 
     for order in OR:
         tmp = data[data['container'] == order]
@@ -172,11 +173,12 @@ def RePool(data, OR, pooling_volume, Bfab, token_data, dropdown):
 def get_plate_details(plate_id, pool_volume, wrapper, token_data, dropdown):
     df = pd.DataFrame()
     B = wrapper
-    
-    jobId = token_data.get('jobId', None)
-    username = token_data.get("user_data", "None")
 
-    L = Logger(jobid=jobId, username=username)
+    L = Logger(
+        jobid = token_data.get('jobId', None),
+        username= token_data.get("user_data", "None"),
+        environment= token_data.get("environment", "None")
+    )
 
     parent, sampleID, container, containerType, containerNames = [], [], [], [], []
     inputAmount, inputVolume, library_molarity, target_molarity, target_volume = [], [], [], [], []
@@ -370,11 +372,12 @@ def RePool(data, OR, pooling_volume, Bfab, token_data, dropdown):
     df = data[data['container'].isin(list(OR.keys()))]
     dfs = []
 
-    jobId = token_data.get('jobId', None)
-    username = token_data.get("user_data", "None")
-
-    L = Logger(jobid=jobId, username=username)
-
+    L = Logger(
+        jobid = token_data.get('jobId', None),
+        username= token_data.get("user_data", "None"),
+        environment= token_data.get("environment", "None")
+    )
+    
     for order in OR:
         tmp = data[data['container'] == order]
 

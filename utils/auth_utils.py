@@ -96,10 +96,15 @@ def entity_data(token_data: dict) -> str:
     entity_id = token_data.get('entity_id_data', None)
     jobId = token_data.get('jobId', None)
     username = token_data.get("user_data", "None")
+    environment= token_data.get("environment", "None")
 
     if wrapper and entity_class and endpoint and entity_id:
 
-        L = Logger(jobid=jobId, username=username)
+        L = Logger(
+            jobid = jobId,
+            username= username,
+            environment= environment
+        )
 
         entity_data_dict = L.logthis(
             api_call=wrapper.read,
