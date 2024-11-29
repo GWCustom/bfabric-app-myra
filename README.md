@@ -39,6 +39,8 @@ pip install -r requirements.txt
 
 5) Create a PARAMS.py file with your host and port!
 
+CONFIG_FILE_PATH specifies the path to the configuration file containing credentials for the power user. This is essential for managing API logging and accessing backend systems with the required permissions. The application uses this path to authenticate and perform operations as a power user.
+
 ```
 # PARAMS.py
 HOST = 0.0.0.0
