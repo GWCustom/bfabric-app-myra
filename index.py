@@ -9,6 +9,7 @@ import pandas as pd
 from dash import callback_context as ctx
 from utils import auth_utils, components, formatting_functions as fns
 from datetime import datetime as dt
+from utils.objects import Logger
 
 if os.path.exists("./PARAMS.py"):
     try:
@@ -98,9 +99,9 @@ app.layout = html.Div(
         dcc.Store(id='token', storage_type='session'), # Where we store the actual token
         dcc.Store(id='entity', storage_type='session'), # Where we store the entity data retrieved from bfabric
         dcc.Store(id='token_data', storage_type='session'), # Where we store the token auth response
+        dcc.Store(id='input_df', storage_type='session'), # Where we store the input dataframe
     ],style={"width":"100vw", "overflow-x":"hidden", "overflow-y":"scroll"}
 )
-
 
 #################### (3) app.callback ####################
 @app.callback(
@@ -113,7 +114,7 @@ app.layout = html.Div(
         Output('session-details', 'children'),
         Output('load-val-2', 'disabled'),
         Output('pool_vol', 'disabled'),
-        Output('dropdown-select-file-type', 'disabled'),
+        Output('dropdown-select-file-type', 'disabled')
     ],
     [
         Input('url', 'search'),
@@ -139,7 +140,8 @@ def display_page(url_params):
         return None, None, None, components.no_auth, base_title, None, True, True, True
     
     if tdata:
-        entity_data = json.loads(auth_utils.entity_data(tdata))
+        entity_data_json, logger_instance = auth_utils.entity_data(tdata)
+        entity_data = json.loads(entity_data_json)
         page_title = f"{tdata['entityClass_data']} - {entity_data['name']} - ID: - {tdata['entity_id_data']}" if tdata else "B-Fabric App Interface"
         session_details = [html.P("No session details available.")]
         if not tdata:
@@ -176,12 +178,15 @@ def display_page(url_params):
                     return token, tdata, entity_data, components.dev, page_title,session_details, True, True, True
     else: 
         return None, None, None, components.no_auth, base_title,session_details, True, True, True
-
 @app.callback(output=Output("mal-card", "children"),
-              state=[State("dropdown-select-file-type", "value"),
-                     State("token", "data")],
-              inputs=[Input("input_df","data")])
-def generate_iseq_selectors(data, ftype, token):
+            state=[State("dropdown-select-file-type", "value"),
+                    State("token", "data"),
+                    State('token_data', 'data'),
+                    State("pool_vol", "value")],
+            inputs=[Input("input_df","data")],
+            prevent_initial_call=True
+            )
+def generate_iseq_selectors(data, ftype, token, token_data, pool_vol):
 
     tdata = json.loads(auth_utils.token_to_data(token))
 
@@ -191,68 +196,115 @@ def generate_iseq_selectors(data, ftype, token):
         df['ident'] = [str(i).split("_")[-1] for i in list(df['group'])]
         order_runs = dict()
 
+        wrapper = auth_utils.token_response_to_bfabric(tdata)
+
+        L = Logger(
+            jobid = token_data.get('jobId', None),
+            username= token_data.get("user_data", "None"),
+            environment= token_data.get("environment", "None")
+        )
+
         for order in list(df['ident'].unique()):
             tmp = df[df['ident'] == order]
             runs = []
 
-            wrapper = auth_utils.token_response_to_bfabric(tdata)
-
             try:
-                ress = wrapper.read_object("sample", {"tubeid":list(tmp['tubeID']),"includeruns":True,"type":"Library on Run - Illumina"})
-            except:
+                # old api call - ress = wrapper.read("sample", {"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"}, max_results=None)
+
+                ress = L.logthis(
+                    api_call=wrapper.read,
+                    endpoint= "sample",
+                    obj={"tubeid": list(tmp['tubeID']), "includeruns": True, "type": "Library on Run - Illumina"},
+                    max_results=None,
+                    params={"action": ftype, "pooling volume": pool_vol},
+                    flush_logs = False
+                )
+
+            except Exception as e:
+                L.log_operation(
+                        "Error",
+                        f"Failed to retrieve samples for order {order}. Exception: {e}",
+                        params={"action": ftype},
+                        flush_logs=False
+                )
                 ress = []
 
-            if type(ress) != type(None):
-            
+            if ress:
                 for res in ress:
-                    if hasattr(res, "run"):
-                        for w in res.run:
+                    # Try to access the 'run' attribute if it exists
+                    if 'run' in res:
+                        for w in res['run']:
                             try:
-                                runs.append(w._id)
-                            except:
-                                pass
-                    else: 
-                        print("No run attribute for sample "+str(res._id))
-
+                                runs.append(w['id'])
+                            except KeyError:
+                                L.log_operation(
+                                        "Error",
+                                        f"Missing 'id' in run data for sample {res.get('id', 'unknown ID')}.",
+                                        params={"sample": res},
+                                        flush_logs=False
+                                )
+                                print("Error: Missing '_id' in run data")
+                    else:
+                        L.log_operation(
+                                "Error",
+                                f"No 'run' attribute found for sample {res.get('id', 'unknown ID')}.",
+                                params={"sample": res},
+                                flush_logs=False
+                        )
+                        print(f"No run attribute found for sample {res.get('id', 'unknown ID')}")
+                        
             runs = list(set(runs))
-            iseqs = dict()
+            iseqs = {}
 
+            # Fetch the run data if runs list is populated
             for run in runs:
-                res = wrapper.read_object("run", {"id":str(run)})
-                # res = tdata['bfabric_wrapper'].read_object("run", {"id":str(run)})
-                if "iseq" in str(res[0].instrument).lower() or str(res[0].qc) == "true":
-                    iseqs[str(run)]=res[0].name
 
-            order_runs[order] = iseqs.copy()
+                #res_run = wrapper.read("run", {"id": str(run)}, max_results=None)
+
+                res_run = L.logthis(
+                    api_call=wrapper.read,
+                    endpoint= "run",
+                    obj={"id": str(run)},
+                    max_results=None,
+                    params={"action": ftype, "pooling volume": pool_vol},
+                    flush_logs = False
+                )
+
+
+                if res_run and "instrument" in res_run[0] and (
+                    "iseq" in str(res_run[0]["instrument"]).lower() or str(res_run[0].get("qc", "false")) == "true"
+                ):
+                    iseqs[str(run)] = res_run[0]["name"]
+
+            if iseqs:
+                order_runs[order] = iseqs.copy()
 
         send = [
             html.Div(
                 [   
                     html.P(
-                        "Order "+str(order),
-                        style={
-                            "font-size":"14px",
-                            "margin-bottom":"1px",
-                        }
+                        "Order " + str(order),
+                        style={"font-size": "14px", "margin-bottom": "1px"}
                     ),
                     dcc.Dropdown(
-                        id="order_"+str(order),
-                        options=[
-                            {
-                                "label": order_runs[order][elt],
-                                "value": elt
-                            } for elt in order_runs[order]
-                            ],
+                        id="order_" + str(order),
+                        options=[{"label": order_runs[order][elt], "value": elt} for elt in order_runs[order]],
                         clearable=False,
                         searchable=False,
                         value="",
-                        style={"padding":"2px"}
+                        style={"padding": "2px"}
                     ),
                 ],
-                style={"margin-bottom":"10px"}
+                style={"margin-bottom": "10px"}
             ) for order in order_runs
         ]
         # send.append(html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0))
+        L.log_operation(
+            "Log",
+            "Submit iSeq Selections.",
+            params={"action": ftype, "pooling volume": pool_vol, f"Order {order}": iseqs},
+            flush_logs=True
+        )
         return send
     else:
         # return [html.Button('Submit iSeq Selections', id='submit_iseq', n_clicks=0)]
@@ -270,8 +322,9 @@ def generate_iseq_selectors(data, ftype, token):
     [
         State("token", "data"),
         State("entity", "data"),
-        State("bug-description", "value")
-    ]
+        State("bug-description", "value"),
+    ],
+    prevent_initial_call=True
 )
 def submit_bug_report(n_clicks, token, entity_data, bug_description):
 
@@ -280,7 +333,14 @@ def submit_bug_report(n_clicks, token, entity_data, bug_description):
     else:
         token_data = ""
 
+    L = Logger(
+        jobid = token_data.get('jobId', None),
+        username= token_data.get("user_data", "None"),
+        environment= token_data.get("environment", "None")
+    )
+
     if n_clicks:
+        L.log_operation("bug_report", "Initiating bug report submission process.", params=None, flush_logs=False)
         try:
             sending_result = auth_utils.send_bug_report(
                 token_data=token_data,
@@ -288,10 +348,13 @@ def submit_bug_report(n_clicks, token, entity_data, bug_description):
                 description=bug_description
             )
             if sending_result:
+                L.log_operation("bug_report", bug_description, params=None, flush_logs=True)
                 return True, False
             else:
+                L.log_operation("bug_report", "Failed to submit bug report!", params=None, flush_logs=True)
                 return False, True
         except:
+            L.log_operation("bug_report", "Failed to submit bug report!", params=None, flush_logs=True)
             return False, True
 
     return False, False
@@ -301,17 +364,23 @@ def submit_bug_report(n_clicks, token, entity_data, bug_description):
         Output("input_df", "data"),
         Output("submit_iseq", "disabled"),
     ],
-              inputs=[Input("load-val-2", "n_clicks")],
-                state=[State("token", "data"),
-                     State("pool_vol", "value")],prevent_initial_call=True)
-def generate_input_df(start, token, pool_vol):
+        inputs=[Input("load-val-2", "n_clicks")],
+        state=[State("token", "data"),
+               State("pool_vol", "value"),
+               State("token_data", "data"),
+               State("dropdown-select-file-type","value")
+    ],
+    prevent_initial_call=True
+    )
+
+def generate_input_df(start, token, pool_vol, token_data, dropdown):
 
     tdata = json.loads(auth_utils.token_to_data(token))
     plate = tdata['entity_id_data']
 
     wrapper = auth_utils.token_response_to_bfabric(tdata)
 
-    df = fns.get_plate_details(plate, pool_vol, wrapper)
+    df = fns.get_plate_details(plate, pool_vol, wrapper, token_data, dropdown)
 
     return df.to_dict("records"), False
 
@@ -322,8 +391,9 @@ def generate_input_df(start, token, pool_vol):
               state=[State("dropdown-select-file-type","value"),
                     State("mal-card","children"),
                     State("pool_vol","value"),
-                    State("token","data")],prevent_initial_call=True)
-def generate_table(data, iseq_submit, dropdown, card, pool_vol, token):
+                    State("token","data"),
+                    State('token_data', 'data')],prevent_initial_call=True)
+def generate_table(data, iseq_submit, dropdown, card, pool_vol, token, token_data):
 
     print("CALLBACK IS RUNNING")
 
@@ -382,7 +452,7 @@ def generate_table(data, iseq_submit, dropdown, card, pool_vol, token):
             return
 
         wrapper = auth_utils.token_response_to_bfabric(json.loads(auth_utils.token_to_data(token)))
-        df = fns.RePool(data,orderRun,pool_vol,wrapper)
+        df = fns.RePool(data,orderRun,pool_vol,wrapper, token_data, dropdown)
 
     send = dash_table.DataTable(
                 df.to_dict("records"),
